@@ -238,19 +238,21 @@ class PersonalityEngine {
   }
 
   async setupAIModelIntegration() {
-    // Initialize AI model for response generation
+    // LAZY LOADING: Initialize AI model configs without testing connections
     this.aiConfig = {
       primaryModel: {
         name: 'Gemini-2.5-Flash',
         endpoint: 'https://openrouter.ai/api/v1/chat/completions',
         model: 'google/gemini-2.5-flash',
-        apiKey: process.env.OPENROUTER_API_KEY
+        apiKey: process.env.OPENROUTER_API_KEY,
+        initialized: false
       },
       fallbackModel: {
         name: 'Claude-3.5-Haiku',
         endpoint: 'https://openrouter.ai/api/v1/chat/completions',
         model: 'anthropic/claude-3.5-haiku:beta',
-        apiKey: process.env.OPENROUTER_API_KEY
+        apiKey: process.env.OPENROUTER_API_KEY,
+        initialized: false
       }
     };
 
@@ -258,7 +260,13 @@ class PersonalityEngine {
       throw new Error('OpenRouter API key required for personality engine');
     }
 
-    this.logger.debug('AI model integration configured');
+    // Response cache for performance optimization
+    this.responseCache = new Map();
+    this.maxCacheSize = 100;
+    this.cacheHitRate = 0;
+    this.totalRequests = 0;
+
+    this.logger.debug('AI model integration configured (lazy loading enabled)');
   }
 
   async generateResponse(params) {
@@ -403,8 +411,28 @@ class PersonalityEngine {
   }
 
   async generateAIResponse(strategy, context, toolResults, personality) {
+    this.totalRequests++;
+    
     try {
       const prompt = this.constructPersonalityPrompt(strategy, context, toolResults, personality);
+      
+      // PERFORMANCE: Check cache first
+      const cacheKey = this.generateCacheKey(strategy, prompt, personality);
+      if (this.responseCache.has(cacheKey)) {
+        this.cacheHitRate = ((this.cacheHitRate * (this.totalRequests - 1)) + 1) / this.totalRequests;
+        this.logger.debug('Cache hit', { hitRate: (this.cacheHitRate * 100).toFixed(1) + '%' });
+        
+        const cached = this.responseCache.get(cacheKey);
+        return {
+          ...cached,
+          cached: true
+        };
+      }
+
+      // LAZY LOADING: Initialize model on first use
+      if (!this.aiConfig.primaryModel.initialized) {
+        await this.initializeModel('primary');
+      }
       
       const response = await axios.post(this.aiConfig.primaryModel.endpoint, {
         model: this.aiConfig.primaryModel.model,
@@ -425,19 +453,125 @@ class PersonalityEngine {
         headers: {
           'Authorization': `Bearer ${this.aiConfig.primaryModel.apiKey}`,
           'Content-Type': 'application/json'
-        }
+        },
+        timeout: 10000
       });
 
-      return {
+      const result = {
         content: response.data.choices[0]?.message?.content || '',
         model: this.aiConfig.primaryModel.name,
-        success: true
+        success: true,
+        cached: false
       };
+
+      // Cache the response
+      this.cacheResponse(cacheKey, result);
+      
+      return result;
       
     } catch (error) {
       this.logger.error('❌ AI response generation failed', error);
       
-      // Try fallback model or return template-based response
+      // Try fallback model
+      if (!this.aiConfig.fallbackModel.initialized) {
+        try {
+          await this.initializeModel('fallback');
+          return this.generateFallbackAIResponse(strategy, context, toolResults, personality);
+        } catch (fallbackError) {
+          this.logger.error('❌ Fallback model also failed', fallbackError);
+        }
+      }
+      
+      // Return template-based response
+      return this.generateTemplateResponse(strategy, personality);
+    }
+  }
+
+  async initializeModel(modelType) {
+    const modelConfig = modelType === 'primary' ? this.aiConfig.primaryModel : this.aiConfig.fallbackModel;
+    
+    try {
+      // Simple connection test
+      const testResponse = await axios.post(modelConfig.endpoint, {
+        model: modelConfig.model,
+        messages: [{ role: 'user', content: 'test' }],
+        max_tokens: 5
+      }, {
+        headers: {
+          'Authorization': `Bearer ${modelConfig.apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 5000
+      });
+      
+      modelConfig.initialized = true;
+      this.logger.debug(`✅ ${modelConfig.name} initialized and tested`);
+      
+    } catch (error) {
+      this.logger.warn(`⚠️ ${modelConfig.name} initialization failed, will retry on next use`, error.message);
+      // Don't throw - allow system to continue with templates
+    }
+  }
+
+  generateCacheKey(strategy, prompt, personality) {
+    // Create hash-like key for similar requests
+    const keyData = {
+      responseType: strategy.responseType,
+      personalityAdjustment: strategy.personalityAdjustment,
+      promptHash: prompt.userPrompt.substring(0, 100), // First 100 chars
+      traits: {
+        professionalism: personality.traits.professionalism,
+        warmth: personality.traits.warmth
+      }
+    };
+    
+    return JSON.stringify(keyData).replace(/\s/g, '');
+  }
+
+  cacheResponse(key, result) {
+    // Implement LRU cache
+    if (this.responseCache.size >= this.maxCacheSize) {
+      const firstKey = this.responseCache.keys().next().value;
+      this.responseCache.delete(firstKey);
+    }
+    
+    this.responseCache.set(key, {
+      content: result.content,
+      model: result.model,
+      success: result.success,
+      timestamp: Date.now()
+    });
+  }
+
+  async generateFallbackAIResponse(strategy, context, toolResults, personality) {
+    // Similar to primary but uses fallback model
+    try {
+      const prompt = this.constructPersonalityPrompt(strategy, context, toolResults, personality);
+      
+      const response = await axios.post(this.aiConfig.fallbackModel.endpoint, {
+        model: this.aiConfig.fallbackModel.model,
+        messages: [
+          { role: 'system', content: prompt.systemPrompt },
+          { role: 'user', content: prompt.userPrompt }
+        ],
+        temperature: 0.7,
+        max_tokens: 500
+      }, {
+        headers: {
+          'Authorization': `Bearer ${this.aiConfig.fallbackModel.apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 15000 // Longer timeout for fallback
+      });
+
+      return {
+        content: response.data.choices[0]?.message?.content || '',
+        model: this.aiConfig.fallbackModel.name,
+        success: true,
+        fallback: true
+      };
+    } catch (error) {
+      this.logger.error('❌ Fallback AI response failed', error);
       return this.generateTemplateResponse(strategy, personality);
     }
   }

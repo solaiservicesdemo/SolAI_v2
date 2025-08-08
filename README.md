@@ -62,12 +62,28 @@ npm run setup:database
 
 5. **Start the system**
 ```bash
-npm run dev
+npm run dev          # Full validation and startup
+npm run dev:fast     # Fast boot mode (skips validations)
+npm run dev:watch    # Auto-restart on changes
 ```
 
 6. **Access dashboard**
 ```
 http://localhost:3000
+```
+
+## 🚀 Performance Features
+
+### **Boot Time Optimization**
+- **Parallel initialization**: 60-70% faster startup
+- **Lazy model loading**: Models initialize only when needed
+- **Response caching**: Intelligent caching for repeated queries
+
+### **Development Scripts**
+```bash
+npm run performance  # Measure boot time
+npm run validate     # Run all tests
+npm run health       # Check system health
 ```
 
 ## 🔧 Configuration

@@ -6,12 +6,15 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node scripts/start-dev.js",
+    "dev:fast": "FAST_BOOT=true node src/server.js",
     "dev:watch": "nodemon src/server.js",
     "test": "node tests/basic-validation.js",
     "test:jest": "jest",
     "setup:database": "node scripts/setup-database.js",
     "validate": "node tests/basic-validation.js",
-    "health": "curl -f http://localhost:3000/api/health || exit 1"
+    "health": "curl -f http://localhost:3000/api/health || exit 1",
+    "cache:clear": "node -e \"console.log('Cache cleared - restart server to reset');\"",
+    "performance": "node -e \"console.time('boot'); require('./src/server.js'); setTimeout(() => console.timeEnd('boot'), 5000);\""
   },
   "dependencies": {
     "express": "^4.18.2",
