@@ -12,19 +12,23 @@
    /stop asking/i,
    /\bbro\b/i,
    /pls gimme ans/i,
-   /don['’]t ask/i,
+   /don['’]t ask/i
  ];
  
  const SHORT_PATTERNS = [
-   /too long/i, /\bshort(er)?\b/i, /\btl;dr\b/i,
-   /no long messages/i, /low attention/i, /attention span/i
+   /too long/i,
+   /\bshort(er)?\b/i,
+   /\btl;dr\b/i,
+   /no long messages/i,
+   /low attention/i,
+   /attention span/i
  ];
  
  function wantsNoQuestions(userText = '') {
-   return NOQ_PATTERNS.some((rx) => rx.test(userText));
+   return NOQ_PATTERNS.some(rx => rx.test(userText));
  }
  function wantsShort(userText = '') {
-   return SHORT_PATTERNS.some((rx) => rx.test(userText));
+   return SHORT_PATTERNS.some(rx => rx.test(userText));
  }
  
  class ConversationEngine {
@@ -33,14 +37,13 @@
      this.personalityEngine = personalityEngine;
      this.toolOrchestrator = toolOrchestrator;
      this.logger = new Logger('ConversationEngine');
-     
+ 
      this.conversationStates = new Map();
      this.setupConversationPatterns();
    }
  
    async initialize() {
      this.logger.info('🧠 Initializing conversation engine...');
-     
      try {
        this.setupStateManagement();
        await this.loadConversationTemplates();
@@ -58,7 +61,7 @@
          response: 'personalized_greeting',
          followUp: true
        },
-       
+ 
        task_request: {
          patterns: [
            /help me (with|manage|organize)/i,
@@ -88,7 +91,7 @@
          response: 'informational_response',
          requiresReasoning: true
        },
-       
+ 
        memory_reference: {
          patterns: [
            /remember (that|when)/i,
@@ -99,7 +102,7 @@
          response: 'memory_retrieval',
          requiresContext: true
        },
-       
+ 
        question: {
          patterns: [
            /^(what|how|when|where|why|who)/i,
@@ -109,7 +112,7 @@
          response: 'informational_response',
          requiresReasoning: true
        },
-       
+ 
        appreciation: {
          patterns: [/^(thank|thanks|appreciate)/i],
          response: 'gracious_acknowledgment',
@@ -137,33 +140,32 @@
          "Hi there! How can I assist you with your real estate business today?",
          "Good to chat with you! What's on your agenda?"
        ],
-       
+ 
        task_coordination: [
          "I'd be happy to help you with that. Let me coordinate the right tools for your needs.",
          "Absolutely! Let me organize the best approach for what you're looking to accomplish.",
          "I can definitely assist with that. Give me a moment to set everything up."
        ],
-       
+ 
        memory_retrieval: [
-         "Yes, I remember our conversation about that. Let me pull up the details.",
-         "Of course! I have that information from our previous discussion.",
+         'Yes, I remember our conversation about that. Let me pull up the details.',
+         'Of course! I have that information from our previous discussion.',
          "That's right - I recall we covered that topic. Let me find the specifics."
        ],
-       
+ 
        gracious_acknowledgment: [
          "You're very welcome! I'm here whenever you need assistance.",
-         "My pleasure! Is there anything else I can help you with?",
-         "Happy to help! Let me know if you need anything else."
+         'My pleasure! Is there anything else I can help you with?',
+         'Happy to help! Let me know if you need anything else.'
        ]
      };
    }
  
    async processMessage(request) {
      const timer = this.logger.startTimer('message-processing');
-     
      try {
        const { message, sessionId, context = {} } = request;
-       
+ 
        this.logger.conversation(sessionId, 'message-received', {
          messageLength: message.length,
          hasContext: Object.keys(context).length > 0
@@ -187,22 +189,22 @@
  
        // 1) Get or create conversation state
        const conversationState = await this.getConversationState(sessionId);
-       
+ 
        // 2) Analyze message & intent
        const messageAnalysis = await this.analyzeMessage(message, conversationState, context);
-       
+ 
        // 3) Retrieve relevant memory and context (pass current message)
        const enhancedContext = await this.enhanceWithMemory(messageAnalysis, sessionId, message);
-       
+ 
        // 4) Determine response strategy
        const responseStrategy = await this.planResponse(messageAnalysis, enhancedContext);
-       
+ 
        // 5) Execute tools if needed
        const toolResults = await this.executeTools(responseStrategy, enhancedContext);
-       
+ 
        // 6) Generate personalized response
        const response = await this.generateResponse(responseStrategy, enhancedContext, toolResults);
-       
+ 
        // 7) Update conversation state and memory
        await this.updateConversationState(sessionId, {
          message,
@@ -211,9 +213,9 @@
          toolResults,
          timestamp: new Date()
        });
-       
+ 
        timer.end('Conversation processing completed');
-       
+ 
        return {
          success: true,
          content: response.content,
@@ -230,11 +232,10 @@
            toolCoordination: toolResults.coordination
          }
        };
- 
      } catch (error) {
        timer.end('Conversation processing failed');
        this.logger.error('❌ Message processing failed', error, { sessionId: request.sessionId });
-       
+ 
        return {
          success: false,
          error: 'Processing failed',
@@ -247,7 +248,6 @@
  
    async getConversationState(sessionId) {
      let state = this.conversationStates.get(sessionId);
-     
      if (!state) {
        const savedState = await this.memoryManager.getConversationState(sessionId);
        state = savedState || { ...this.defaultState, sessionId, createdAt: new Date() };
@@ -258,12 +258,11 @@
  
    async analyzeMessage(message, conversationState, context) {
      const analysisTimer = this.logger.startTimer('message-analysis');
-     
      try {
        const patternMatch = this.performPatternMatching(message);
        const contextAnalysis = this.analyzeContext(message, conversationState, context);
        const emotionalContext = this.detectEmotionalContext(message);
-       
+ 
        const analysis = {
          primaryIntent: patternMatch.intent || 'general_conversation',
          confidence: patternMatch.confidence || 0.7,
@@ -275,14 +274,13 @@
          conversationTurn: conversationState.history.length + 1,
          message // current text available downstream
        };
-       
+ 
        analysisTimer.end('Message analysis completed');
        return analysis;
-       
      } catch (error) {
        analysisTimer.end('Message analysis failed');
        this.logger.error('❌ Message analysis failed', error);
-       
+ 
        return {
          primaryIntent: 'general_conversation',
          confidence: 0.5,
@@ -321,7 +319,7 @@
        recentContext: conversationState.history.slice(-3),
        userPreferences: conversationState.preferences || {},
        activeSession: true,
-       additionalContext: Object.keys(additionalContext).length > 0
+       additionalContext: Object.keys(additionalContext || {}).length > 0
      };
    }
  
@@ -333,7 +331,7 @@
        concerned: /worried|concerned|nervous|anxious|unsure/i,
        excited: /excited|thrilled|fantastic|awesome|can't wait/i
      };
-     
+ 
      for (const [emotion, pattern] of Object.entries(emotionalMarkers)) {
        if (pattern.test(message)) {
          return {
@@ -344,7 +342,7 @@
          };
        }
      }
-     
+ 
      return {
        primaryEmotion: 'neutral',
        tone: 'professional',
@@ -404,10 +402,15 @@
            importantFacts: relevantMemory.facts || []
          }
        };
-       
      } catch (error) {
        this.logger.error('❌ Memory enhancement failed', error);
-       return { enhanced: false, memoryRetrieved: false, error: error.message, preferences: {}, currentUserMessage };
+       return {
+         enhanced: false,
+         memoryRetrieved: false,
+         error: error.message,
+         preferences: {},
+         currentUserMessage
+       };
      }
    }
  
@@ -429,30 +432,28 @@
        return 'context_aware_response';
      } else if (messageAnalysis.primaryIntent === 'greeting') {
        return 'personalized_greeting';
-     } else {
-       return 'conversational_response';
      }
+     return 'conversational_response';
    }
  
    async executeTools(responseStrategy, enhancedContext) {
      if (!responseStrategy.requiresTools) {
        return { toolsUsed: [], coordination: 'none' };
      }
-     
+ 
      try {
        const toolResults = await this.toolOrchestrator.coordinateTools({
          intent: responseStrategy.responseType,
          context: enhancedContext,
          priority: responseStrategy.priority
        });
-       
+ 
        return {
          toolsUsed: toolResults.toolsExecuted || [],
          results: toolResults.results || {},
          coordination: toolResults.coordinationType || 'single',
          executionTime: toolResults.executionTime || 0
        };
-       
      } catch (error) {
        this.logger.error('❌ Tool execution failed', error);
        return {
@@ -465,31 +466,29 @@
  
    async generateResponse(responseStrategy, enhancedContext, toolResults) {
      const responseTimer = this.logger.startTimer('response-generation');
-     
      try {
        const baseResponse = await this.personalityEngine.generateResponse({
          strategy: responseStrategy,
          context: {
            ...enhancedContext,
-           preferences: enhancedContext.preferences || {},
+           preferences: enhancedContext.preferences || {}
          },
          toolResults,
          timestamp: new Date()
        });
-       
+ 
        responseTimer.end('Response generation completed');
-       
+ 
        return {
          content: baseResponse.content,
          conversationId: uuidv4(),
          personalityInsights: baseResponse.personalityApplication,
          processingTime: baseResponse.processingTime || 0
        };
-       
      } catch (error) {
        responseTimer.end('Response generation failed');
        this.logger.error('❌ Response generation failed', error);
-       
+ 
        return {
          content: "I understand what you're asking. Let me help you with that in the best way I can.",
          conversationId: uuidv4(),
@@ -511,9 +510,7 @@
          });
          state.lastActivity = conversationData.timestamp;
        }
-       
        await this.memoryManager.storeConversationTurn(sessionId, conversationData);
-       
      } catch (error) {
        this.logger.error('❌ Failed to update conversation state', error);
      }

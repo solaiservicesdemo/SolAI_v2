@@ -8,7 +8,7 @@
  
  // === Answer-first baseline system prompt ===
  const BASE_SYSTEM_PROMPT = `
- You are SolAI. Default to ANSWER-FIRST: provide a concrete, helpful answer immediately.
+ You are SolAI. You are intelligent and can answer any kind of questions, not only real estate. Default to ANSWER-FIRST: provide a concrete, helpful answer immediately.
  Use clarifying questions only if absolutely necessary to avoid a wrong action.
  
  Rules:
@@ -46,7 +46,7 @@
    /stop asking/i,
    /\bbro\b/i,
    /pls gimme ans/i,
-   /don['’]t ask/i,
+   /don['’]t ask/i
  ];
  
  class PersonalityEngine {
@@ -61,11 +61,9 @@
  
    async initialize() {
      this.logger.info('🎭 Initializing personality engine...');
- 
      try {
        await this.loadPersonalityConfiguration();
        await this.setupAIModelIntegration();
- 
        this.initialized = true;
        this.logger.info('✅ Personality engine initialized successfully');
      } catch (error) {
@@ -78,14 +76,14 @@
      // Core personality configuration
      this.basePersonality = {
        traits: {
-         professionalism: 0.85, // Professional but approachable
-         curiosity: 0.9, // Ask follow-up questions
-         helpfulness: 0.95, // Always try to help
-         transparency: 0.9, // Explain reasoning clearly
-         adaptability: 0.85, // Adjust to user style
-         proactivity: 0.8, // Take initiative appropriately
-         warmth: 0.75, // Friendly but not overly casual
-         intelligence: 0.9, // Demonstrate understanding and insight
+         professionalism: 0.85,    // Professional but approachable
+         curiosity: 0.9,           // Ask follow-up questions
+         helpfulness: 0.95,        // Always try to help
+         transparency: 0.9,        // Explain reasoning clearly
+         adaptability: 0.85,       // Adjust to user style
+         proactivity: 0.8,         // Take initiative appropriately
+         warmth: 0.75,             // Friendly but not overly casual
+         intelligence: 0.9         // Demonstrate understanding and insight
        },
  
        communicationStyle: {
@@ -96,16 +94,16 @@
          maintainContext: true,
          showPersonality: true,
          professionalTone: true,
-         adaptToUser: true,
+         adaptToUser: true
        },
  
        responseCharacteristics: {
-         averageLength: 'medium', // Brief, medium, detailed
-         technicalDetail: 'moderate', // Low, moderate, high
-         emotionalIntelligence: 'high', // Low, medium, high
-         creativitySeminar: 'moderate', // Conservative, moderate, creative
-         assertiveness: 'moderate', // Passive, moderate, assertive
-       },
+         averageLength: 'medium',      // Brief, medium, detailed
+         technicalDetail: 'moderate',  // Low, moderate, high
+         emotionalIntelligence: 'high',
+         creativitySeminar: 'moderate',
+         assertiveness: 'moderate'
+       }
      };
  
      // Adaptation profiles for different user types
@@ -114,29 +112,29 @@
          professionalism: 0.95,
          directness: 0.85,
          efficiency: 0.9,
-         detailLevel: 'concise',
+         detailLevel: 'concise'
        },
  
        relationship_focused: {
          warmth: 0.9,
          personalTouch: 0.85,
          patience: 0.95,
-         detailLevel: 'comprehensive',
+         detailLevel: 'comprehensive'
        },
  
        technical_focused: {
          technicalDetail: 'high',
          precision: 0.95,
          systematicApproach: 0.9,
-         detailLevel: 'detailed',
+         detailLevel: 'detailed'
        },
  
        casual_friendly: {
          warmth: 0.95,
          informality: 0.7,
          humor: 0.6,
-         detailLevel: 'medium',
-       },
+         detailLevel: 'medium'
+       }
      };
    }
  
@@ -146,66 +144,66 @@
          professional: [
            "Good {timeOfDay}! I'm here to help you with your real estate business today. What can I assist you with?",
            'Hello! Great to connect with you. How can I support your work today?',
-           "Hi there! I'm ready to help you tackle whatever's on your agenda. What would you like to focus on?",
+           "Hi there! I'm ready to help you tackle whatever's on your agenda. What would you like to focus on?"
          ],
          warm: [
            "Hey! So good to chat with you again! What's happening in your world today?",
            "Hello! I've been looking forward to our conversation. What can we dive into?",
-           'Hi! Hope you\'re having a great day. What can I help you accomplish?',
-         ],
+           "Hi! Hope you're having a great day. What can I help you accomplish?"
+         ]
        },
  
        task_coordination: {
          proactive: [
            "I'd love to help you with that! Let me coordinate everything needed to get this done efficiently.",
            'Absolutely! I can see exactly what you need. Let me organize the best approach for you.',
-           'Perfect timing - I can handle that for you. Let me set up everything to make this seamless.',
+           'Perfect timing - I can handle that for you. Let me set up everything to make this seamless.'
          ],
          supportive: [
            "I'm here to support you with that. Let me work through the details and coordinate what's needed.",
-           'Of course I can help! Let me organize this so it\'s as smooth as possible for you.',
-           "I'd be happy to assist with that. Let me coordinate the right resources for your needs.",
-         ],
+           "Of course I can help! Let me organize this so it's as smooth as possible for you.",
+           "I'd be happy to assist with that. Let me coordinate the right resources for your needs."
+         ]
        },
  
        explanation: {
          detailed: [
            'Let me walk you through this step by step so you have complete clarity.',
            "Here's what's happening and why it matters for your situation:",
-           "I'll explain this thoroughly so you can make the best decision:",
+           "I'll explain this thoroughly so you can make the best decision:"
          ],
          concise: [
            "Here's the key information you need:",
-           'Bottom line - here\'s what matters most:',
-           'The essential details are:',
-         ],
+           "Bottom line - here's what matters most:",
+           'The essential details are:'
+         ]
        },
  
        problem_solving: {
          analytical: [
            'Let me analyze this situation and identify the best solutions for you.',
            'I can see several ways to approach this. Let me break down your options:',
-           "Here's how we can solve this systematically:",
+           "Here's how we can solve this systematically:"
          ],
          creative: [
            'This is an interesting challenge! Let me suggest some creative approaches:',
            'I have some ideas that might work really well for this situation:',
-           "Here are some solutions you might not have considered:",
-         ],
+           "Here are some solutions you might not have considered:"
+         ]
        },
  
        follow_up: {
          checking_in: [
            "How does this approach sound to you? Is there anything you'd like me to adjust?",
            "Does this align with what you were thinking? I'm happy to refine the approach.",
-           "What's your take on this? I can modify the plan based on your feedback.",
+           "What's your take on this? I can modify the plan based on your feedback."
          ],
          offering_more: [
-           'Is there anything else I can help you with while we\'re discussing this?',
+           "Is there anything else I can help you with while we're discussing this?",
            'Would it be helpful if I also looked into related areas that might impact this?',
-           "What other aspects of this situation should we consider together?",
-         ],
-       },
+           'What other aspects of this situation should we consider together?'
+         ]
+       }
      };
    }
  
@@ -216,23 +214,23 @@
          urgent: {
            responseSpeed: 'prioritize',
            tone: 'focused_efficient',
-           structure: 'direct_actionable',
+           structure: 'direct_actionable'
          },
          frustrated: {
            tone: 'extra_supportive',
            patience: 'increased',
-           structure: 'step_by_step',
+           structure: 'step_by_step'
          },
          excited: {
            tone: 'match_enthusiasm',
            energy: 'elevated',
-           structure: 'momentum_building',
+           structure: 'momentum_building'
          },
          concerned: {
            tone: 'reassuring',
            detail: 'comprehensive',
-           structure: 'confidence_building',
-         },
+           structure: 'confidence_building'
+         }
        },
  
        // Communication style adaptations
@@ -240,35 +238,35 @@
          technical_language_detected: {
            technicalDetail: 'increase',
            vocabulary: 'professional',
-           structure: 'systematic',
+           structure: 'systematic'
          },
          casual_language_detected: {
            formality: 'decrease',
            warmth: 'increase',
-           structure: 'conversational',
+           structure: 'conversational'
          },
          business_context_detected: {
            professionalism: 'increase',
            efficiency: 'prioritize',
-           structure: 'results_focused',
-         },
+           structure: 'results_focused'
+         }
        },
  
        // Learning adaptations
        preference_learning: {
          prefers_brief_responses: {
            responseLength: 'shorten',
-           structure: 'bullet_points',
+           structure: 'bullet_points'
          },
          prefers_detailed_explanations: {
            responseLength: 'expand',
-           structure: 'comprehensive',
+           structure: 'comprehensive'
          },
          asks_many_followups: {
            anticipateQuestions: 'increase',
-           proactivity: 'increase',
-         },
-       },
+           proactivity: 'increase'
+         }
+       }
      };
    }
  
@@ -286,15 +284,15 @@
          endpoint: 'https://openrouter.ai/api/v1/chat/completions',
          model: 'google/gemini-2.5-flash',
          apiKey: process.env.OPENROUTER_API_KEY,
-         initialized: false,
+         initialized: false
        },
        fallbackModel: {
          name: 'Claude-3.5-Haiku',
          endpoint: 'https://openrouter.ai/api/v1/chat/completions',
          model: 'anthropic/claude-3.5-haiku:beta',
          apiKey: process.env.OPENROUTER_API_KEY,
-         initialized: false,
-       },
+         initialized: false
+       }
      };
  
      if (!this.aiConfig.primaryModel.apiKey) {
@@ -322,50 +320,31 @@
  
    _computeQuestionBudget(context) {
      const last = this._lastUserMessage(context);
-     if (NOQ_PATTERNS.some((rx) => rx.test(last))) return 0;
-     // also respect stored pref
+     if (NOQ_PATTERNS.some(rx => rx.test(last))) return 0;
      if (context?.preferences?.no_followups) return 0;
-     return 1; // default budget
+     return 1; // default
    }
  
    _looksLikeRealEstateBuy(context) {
      const msg = (this._lastUserMessage(context) || '').toLowerCase();
      const hints = [
-       'condo',
-       '2br',
-       '2-br',
-       '2 bedroom',
-       '2-bedroom',
-       'ocean view',
-       'hoa',
-       'coronado',
-       'vacation home',
-       'rent out',
-       'pet-friendly',
-       'covered parking',
-       'walking distance',
-       'budget',
-       '$',
-       'price',
-       'timeline',
-       'months',
+       'condo', '2br', '2-br', '2 bedroom', '2-bedroom', 'ocean view', 'hoa',
+       'coronado', 'vacation home', 'rent out', 'pet-friendly', 'covered parking',
+       'walking distance', 'budget', '$', 'price', 'timeline', 'months'
      ];
-     return hints.some((h) => msg.includes(h));
+     return hints.some(h => msg.includes(h));
    }
  
    async generateResponse(params) {
      const timer = this.logger.startTimer('response-generation');
- 
      try {
        const { strategy, context, toolResults } = params;
  
-       // Analyze user communication style for adaptation
+       // Analyze user style & adapt
        const userStyle = this.analyzeUserStyle(context);
- 
-       // Apply personality adaptations
        const adaptedPersonality = this.adaptPersonality(strategy, userStyle, context);
  
-       // compute question budget & pick domain template
+       // question budget & domain template
        const questionBudget = this._computeQuestionBudget(context);
        const useReBuyTemplate = this._looksLikeRealEstateBuy(context);
  
@@ -375,21 +354,21 @@
          adaptedPersonality.responseCharacteristics.technicalDetail = 'low';
        }
  
-       // Generate response using AI model
+       // Generate response
        const response = await this.generateAIResponse(
          strategy,
          context,
          toolResults,
          adaptedPersonality,
-         { questionBudget, useReBuyTemplate },
+         { questionBudget, useReBuyTemplate }
        );
  
-       // Apply personality styling to response (enforce caps, respect no-followups)
+       // Apply final styling (de-parrot, caps, follow-up control)
        const styledResponse = this.applyPersonalityStyling(
          response,
          adaptedPersonality,
          userStyle,
-         { questionBudget, preferences: context?.preferences || {} },
+         { questionBudget, preferences: (context?.preferences || {}), context }
        );
  
        timer.end('Response generation completed');
@@ -401,19 +380,18 @@
            userStyleDetected: userStyle,
            templateUsed: styledResponse.template,
            confidence: styledResponse.confidence,
-           questionBudget,
+           questionBudget
          },
-         processingTime: timer.duration || 0,
+         processingTime: timer.duration || 0
        };
      } catch (error) {
        timer.end('Response generation failed');
        this.logger.error('❌ Response generation failed', error);
  
-       // Return safe fallback
        return {
          content: this.generateFallbackResponse(params.strategy),
          personalityApplication: { fallback: true },
-         processingTime: 0,
+         processingTime: 0
        };
      }
    }
@@ -425,18 +403,14 @@
        communication_pace: 'medium',
        emotional_state: 'neutral',
        business_context: false,
-       technical_level: 'medium',
+       technical_level: 'medium'
      };
  
-     if (!context || !context.conversationHistory) {
-       return style;
-     }
+     if (!context || !context.conversationHistory) return style;
  
-     const recentMessages = context.conversationHistory.slice(-3);
- 
-     for (const turn of recentMessages) {
+     const recent = context.conversationHistory.slice(-3);
+     for (const turn of recent) {
        if (!turn.message) continue;
- 
        const message = turn.message.toLowerCase();
  
        if (message.includes('please') || message.includes('thank you') || message.includes('appreciate')) {
@@ -463,7 +437,7 @@
      return style;
    }
  
-   adaptPersonality(strategy, userStyle, context) {
+   adaptPersonality(strategy, userStyle) {
      const adaptations = [];
      let adaptedPersonality = { ...this.activePersonality };
  
@@ -500,15 +474,11 @@
        adaptations.push('business_focused');
      }
  
-     return {
-       ...adaptedPersonality,
-       adaptations,
-     };
+     return { ...adaptedPersonality, adaptations };
    }
  
    async generateAIResponse(strategy, context, toolResults, personality, opts = {}) {
      this.totalRequests++;
- 
      try {
        const { questionBudget = 1, useReBuyTemplate = false } = opts;
  
@@ -517,19 +487,19 @@
          context,
          toolResults,
          personality,
-         { questionBudget, useReBuyTemplate },
+         { questionBudget, useReBuyTemplate }
        );
  
-       // PERFORMANCE: Check cache first
+       // Cache
        const cacheKey = this.generateCacheKey(strategy, prompt, personality);
        if (this.responseCache.has(cacheKey)) {
          this.cacheHitRate = ((this.cacheHitRate * (this.totalRequests - 1)) + 1) / this.totalRequests;
          this.logger.debug('Cache hit', { hitRate: `${(this.cacheHitRate * 100).toFixed(1)}%` });
- 
          const cached = this.responseCache.get(cacheKey);
          return { ...cached, cached: true };
        }
  
+       // Lazy init
        if (!this.aiConfig.primaryModel.initialized) {
          await this.initializeModel('primary');
        }
@@ -541,29 +511,29 @@
            messages: [
              { role: 'system', content: prompt.systemPrompt },
              ...(prompt.domainTemplate ? [{ role: 'system', content: prompt.domainTemplate }] : []),
-             { role: 'user', content: prompt.userPrompt },
+             { role: 'user', content: prompt.userPrompt }
            ],
            temperature: 0.5,
            top_p: 0.9,
            max_tokens: 1100,
-           frequency_penalty: 0.2,
+           frequency_penalty: 0.2
          },
          {
            headers: {
              Authorization: `Bearer ${this.aiConfig.primaryModel.apiKey}`,
              'Content-Type': 'application/json',
              ...(process.env.OPENROUTER_SITE && { 'HTTP-Referer': process.env.OPENROUTER_SITE }),
-             ...(process.env.OPENROUTER_TITLE && { 'X-Title': process.env.OPENROUTER_TITLE }),
+             ...(process.env.OPENROUTER_TITLE && { 'X-Title': process.env.OPENROUTER_TITLE })
            },
-           timeout: 15000,
-         },
+           timeout: 15000
+         }
        );
  
        const result = {
          content: response.data.choices?.[0]?.message?.content || '',
          model: this.aiConfig.primaryModel.name,
          success: true,
-         cached: false,
+         cached: false
        };
  
        this.cacheResponse(cacheKey, result);
@@ -585,24 +555,23 @@
  
    async initializeModel(modelType) {
      const modelConfig = modelType === 'primary' ? this.aiConfig.primaryModel : this.aiConfig.fallbackModel;
- 
      try {
        await axios.post(
          modelConfig.endpoint,
          {
            model: modelConfig.model,
            messages: [{ role: 'user', content: 'test' }],
-           max_tokens: 5,
+           max_tokens: 5
          },
          {
            headers: {
              Authorization: `Bearer ${modelConfig.apiKey}`,
              'Content-Type': 'application/json',
              ...(process.env.OPENROUTER_SITE && { 'HTTP-Referer': process.env.OPENROUTER_SITE }),
-             ...(process.env.OPENROUTER_TITLE && { 'X-Title': process.env.OPENROUTER_TITLE }),
+             ...(process.env.OPENROUTER_TITLE && { 'X-Title': process.env.OPENROUTER_TITLE })
            },
-           timeout: 5000,
-         },
+           timeout: 5000
+         }
        );
  
        modelConfig.initialized = true;
@@ -610,7 +579,7 @@
      } catch (error) {
        this.logger.warn(
          `⚠️ ${modelConfig.name} initialization failed, will retry on next use`,
-         error.message,
+         error.message
        );
      }
    }
@@ -622,8 +591,8 @@
        promptHash: prompt.userPrompt.substring(0, 100),
        traits: {
          professionalism: personality.traits.professionalism,
-         warmth: personality.traits.warmth,
-       },
+         warmth: personality.traits.warmth
+       }
      };
      return JSON.stringify(keyData).replace(/\s/g, '');
    }
@@ -637,7 +606,7 @@
        content: result.content,
        model: result.model,
        success: result.success,
-       timestamp: Date.now(),
+       timestamp: Date.now()
      });
    }
  
@@ -648,7 +617,7 @@
          context,
          toolResults,
          personality,
-         { questionBudget: 1, useReBuyTemplate: this._looksLikeRealEstateBuy(context) },
+         { questionBudget: 1, useReBuyTemplate: this._looksLikeRealEstateBuy(context) }
        );
  
        const response = await axios.post(
@@ -658,29 +627,29 @@
            messages: [
              { role: 'system', content: prompt.systemPrompt },
              ...(prompt.domainTemplate ? [{ role: 'system', content: prompt.domainTemplate }] : []),
-             { role: 'user', content: prompt.userPrompt },
+             { role: 'user', content: prompt.userPrompt }
            ],
            temperature: 0.5,
            top_p: 0.9,
            max_tokens: 900,
-           frequency_penalty: 0.2,
+           frequency_penalty: 0.2
          },
          {
            headers: {
              Authorization: `Bearer ${this.aiConfig.fallbackModel.apiKey}`,
              'Content-Type': 'application/json',
              ...(process.env.OPENROUTER_SITE && { 'HTTP-Referer': process.env.OPENROUTER_SITE }),
-             ...(process.env.OPENROUTER_TITLE && { 'X-Title': process.env.OPENROUTER_TITLE }),
+             ...(process.env.OPENROUTER_TITLE && { 'X-Title': process.env.OPENROUTER_TITLE })
            },
-           timeout: 20000,
-         },
+           timeout: 20000
+         }
        );
  
        return {
          content: response.data.choices?.[0]?.message?.content || '',
          model: this.aiConfig.fallbackModel.name,
          success: true,
-         fallback: true,
+         fallback: true
        };
      } catch (error) {
        this.logger.error('❌ Fallback AI response failed', error);
@@ -697,10 +666,10 @@
        'You are SolAI, an intelligent AI assistant for real estate professionals.',
        `Personality: professionalism=${personality.traits.professionalism}, helpfulness=${personality.traits.helpfulness}, warmth=${personality.traits.warmth}, proactivity=${personality.traits.proactivity}.`,
        `Communication: length=${personality.responseCharacteristics.averageLength}, technical=${personality.responseCharacteristics.technicalDetail}.`,
-       `${toolResults?.toolsUsed?.length ? `Tools available: ${toolResults.toolsUsed.join(', ')}` : 'No tools used this turn.'}`,
+       `${toolResults?.toolsUsed?.length ? `Tools available: ${toolResults.toolsUsed.join(', ')}` : 'No tools used this turn.'}`
      ].join('\n');
  
-     // Pull concise prefs (with sane defaults)
+     // Concise prefs (defaults)
      const prefs = context?.preferences || {};
      const concise = !!prefs.concise_mode || !!prefs.prefers_brief_responses;
      const maxBullets = Number(prefs.max_bullets || 5);
@@ -715,9 +684,9 @@
        `- No chit-chat. No repetition. If lists exceed limits, summarize.\n` +
        `${prefs.no_followups ? '- Do NOT add a follow-up question.\n' : ''}`;
  
-     const domainTemplate = useReBuyTemplate ? RE_BUY_TEMPLATE + outputRules : outputRules;
+     const domainTemplate = useReBuyTemplate ? (RE_BUY_TEMPLATE + outputRules) : outputRules;
  
-     // Build a minimal user prompt (include the *current* ask + normalized history)
+     // Build minimal user prompt
      let prompt = '';
  
      if (context?.conversationHistory?.length) {
@@ -737,14 +706,13 @@
      }
  
      prompt += `Please respond according to the strategy "${strategy.responseType}" with adjustment "${strategy.personalityAdjustment}".\n`;
-     prompt += 'Do not ask questions if question_budget=0.\n';
+     prompt += `Do not ask questions if question_budget=0.\n`;
  
      return { systemPrompt, userPrompt: prompt, domainTemplate };
    }
  
    generateTemplateResponse(strategy, personality) {
-     const templates =
-       this.responseTemplates[strategy.responseType] || this.responseTemplates.task_coordination;
+     const templates = this.responseTemplates[strategy.responseType] || this.responseTemplates.task_coordination;
  
      let templateCategory = 'supportive';
      if (personality.traits.proactivity > 0.8) templateCategory = 'proactive';
@@ -760,7 +728,7 @@
      return {
        content: this.personalizeTemplate(selectedTemplate, personality),
        model: 'template',
-       success: true,
+       success: true
      };
    }
  
@@ -787,47 +755,40 @@
      let styledContent = response.content || '';
      let confidence = 0.85;
      let template = 'ai_generated';
-     const { questionBudget = 1, preferences = {} } = opts;
+     const { questionBudget = 1, preferences = {}, context } = opts;
  
-     // Trim parroting
-     styledContent = this._deParrot(
-       styledContent,
-       this._lastUserMessage({ conversationHistory: [{ message: this._lastUserMessage(userStyle) }] }),
-     );
+     // Strip any leading "ANSWER-FIRST:" noise
+     styledContent = styledContent.replace(/^\s*ANSWER-FIRST:\s*/i, '');
  
-     // Enforce concise preferences (caps)
+     // Trim parroting (use the *actual* last user message from context)
+     const lastUserMsg = context ? this._lastUserMessage(context) : '';
+     styledContent = this._deParrot(styledContent, lastUserMsg);
+ 
+     // Enforce concise preferences
      const DEFAULTS = {
        concise_mode: false,
        max_bullets: 5,
        max_sections: 2,
        target_word_limit: 120,
-       no_followups: false,
+       no_followups: false
      };
      const mergedPrefs = { ...DEFAULTS, ...preferences };
  
      styledContent = this._capWords(styledContent, mergedPrefs.target_word_limit);
-     styledContent = this._capSectionsAndBullets(
-       styledContent,
-       mergedPrefs.max_sections,
-       mergedPrefs.max_bullets,
-     );
+     styledContent = this._capSectionsAndBullets(styledContent, mergedPrefs.max_sections, mergedPrefs.max_bullets);
  
      // Optional follow-up (respect no_followups & question budget)
-     if (!mergedPrefs.no_followups && questionBudget > 0 && personality.traits.curiosity > 0.8 && !styledContent.includes('?')) {
+     if (!mergedPrefs.no_followups && questionBudget > 0 && personality.traits.curiosity > 0.8 && !/\?\s*$/.test(styledContent)) {
        const followUps = [
          ' What would you like me to do next—shortlist buildings, set tour dates, or run a rental estimate?',
          ' Want me to shortlist 3 buildings and line up tours?',
-         ' Should I pull HOA rules for pet policy and parking on the top picks?',
+         ' Should I pull HOA rules for pet policy and parking on the top picks?'
        ];
        styledContent += followUps[Math.floor(Math.random() * followUps.length)];
        template = 'with_followup';
      }
  
-     return {
-       content: styledContent,
-       template,
-       confidence,
-     };
+     return { content: styledContent, template, confidence };
    }
  
    _capWords(text, maxWords = 120) {
@@ -838,7 +799,7 @@
  
    _capSectionsAndBullets(text, maxSections = 2, maxBullets = 5) {
      if (!text) return text;
-     // Split on headings or horizontal rules (very crude but effective)
+     // Split on headings or horizontal rules (crude but effective)
      const parts = text.split(/\n-{3,}\n|(?=^\s*#{1,3}\s+)/m);
      let pruned = parts.slice(0, Math.max(1, maxSections)).join('\n');
      pruned = this._capBulletsInEach(pruned, maxBullets);
@@ -880,8 +841,9 @@
      const a = (text || '').trim();
      const b = (userMsg || '').trim();
      if (!a || !b) return a;
+     // If the first sentence/lines repeat the user's opening, drop that line
      const head = a.slice(0, 220).toLowerCase();
-     const probe = b.slice(0, 100).toLowerCase();
+     const probe = b.slice(0, 120).toLowerCase();
      if (probe && head.includes(probe)) {
        const parts = a.split('\n');
        return parts.slice(1).join('\n').trim() || a;
@@ -889,13 +851,13 @@
      return a;
    }
  
+   // Kept for compatibility if used elsewhere
    constructUserContextPrompt(context, strategy) {
-     // (kept for compatibility if called elsewhere)
      let prompt = '';
  
      if (context?.conversationHistory?.length) {
        prompt += 'Recent conversation context:\n';
-       context.conversationHistory.slice(-2).forEach((turn) => {
+       context.conversationHistory.slice(-2).forEach(turn => {
          if (turn.message) prompt += `User: ${turn.message}\n`;
          if (turn.response) prompt += `Assistant: ${turn.response}\n`;
        });
@@ -909,11 +871,10 @@
    generateFallbackResponse(strategy) {
      const fallbacks = {
        greeting: "Hello! I'm here to help you with whatever you need today. What can I assist you with?",
-       task_coordination: 'I understand you\'d like help with that. Let me coordinate the best approach for you.',
+       task_coordination: "I understand you'd like help with that. Let me coordinate the best approach for you.",
        general_conversation: "I understand what you're asking about. Let me help you with that in the best way I can.",
-       problem_solving: "That's an interesting challenge. Let me think through some solutions for you.",
+       problem_solving: "That's an interesting challenge. Let me think through some solutions for you."
      };
- 
      return fallbacks[strategy.responseType] || fallbacks.general_conversation;
    }
  
@@ -921,9 +882,8 @@
      try {
        this.logger.debug('Personality configuration updated', {
          sessionId: sessionId?.substring ? sessionId.substring(0, 8) : String(sessionId || ''),
-         config: Object.keys(personalityConfig || {}),
+         config: Object.keys(personalityConfig || {})
        });
- 
        return { success: true };
      } catch (error) {
        this.logger.error('❌ Failed to configure personality', error);
@@ -938,13 +898,13 @@
          professionalism: this.activePersonality.traits.professionalism,
          helpfulness: this.activePersonality.traits.helpfulness,
          warmth: this.activePersonality.traits.warmth,
-         proactivity: this.activePersonality.traits.proactivity,
+         proactivity: this.activePersonality.traits.proactivity
        },
        aiModelStatus: {
          primary: this.aiConfig.primaryModel.name,
          fallback: this.aiConfig.fallbackModel.name,
-         available: !!this.aiConfig.primaryModel.apiKey,
-       },
+         available: !!this.aiConfig.primaryModel.apiKey
+       }
      };
    }
  }
