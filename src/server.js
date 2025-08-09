@@ -110,7 +110,17 @@ class SolAIServer {
   }
 
   async initializeToolOrchestrator(memoryManager) {
-    const toolOrchestrator = new ToolOrchestrator(memoryManager);
+    // Need to initialize security components first for enterprise features
+    const ExecutionSandbox = require('./security/execution-sandbox');
+    const AuditTrail = require('./security/audit-trail');
+    
+    const auditTrail = new AuditTrail();
+    await auditTrail.initialize();
+    
+    const executionSandbox = new ExecutionSandbox(auditTrail);
+    await executionSandbox.initialize();
+    
+    const toolOrchestrator = new ToolOrchestrator(memoryManager, executionSandbox, auditTrail);
     await toolOrchestrator.initialize();
     return toolOrchestrator;
   }

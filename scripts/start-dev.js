@@ -86,12 +86,12 @@ class DevStartup {
     
     const requiredEnvVars = [
       'OPENROUTER_API_KEY',
-      'REDIS_URL',
       'SUPABASE_URL', 
       'SUPABASE_ANON_KEY'
     ];
 
     const optionalEnvVars = [
+      'REDIS_URL',
       'GMAIL_API_ENDPOINT',
       'TWILIO_API_ENDPOINT', 
       'CLAUDE_FLOW_API_KEY'

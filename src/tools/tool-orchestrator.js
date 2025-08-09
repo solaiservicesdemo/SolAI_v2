@@ -1,6 +1,7 @@
 /**
- * 🔧 SolAI Tool Orchestrator
- * Intelligent coordination of existing super-tools + Claude Flow's 87 MCP tools
+ * 🔧 SolAI Tool Orchestrator 
+ * Enhanced integration with existing super-tools + Claude Flow's 87 MCP tools
+ * Enterprise-grade coordination, performance optimization, and security integration
  */
 
 const Logger = require('../core/logger');
@@ -8,26 +9,30 @@ const { v4: uuidv4 } = require('uuid');
 const axios = require('axios');
 
 class ToolOrchestrator {
-  constructor(memoryManager) {
+  constructor(memoryManager, executionSandbox, auditTrail) {
     this.memoryManager = memoryManager;
+    this.executionSandbox = executionSandbox;
+    this.auditTrail = auditTrail;
     this.logger = new Logger('ToolOrchestrator');
     this.initialized = false;
     
     this.setupToolRegistry();
     this.setupCoordinationRules();
     this.setupExecutionStrategies();
+    this.setupPerformanceOptimization();
   }
 
   async initialize() {
-    this.logger.info('🔧 Initializing tool orchestrator...');
+    this.logger.info('🔧 Initializing enhanced tool orchestrator...');
     
     try {
       await this.initializeExistingTools();
       await this.initializeClaudeFlowIntegration();
       await this.setupToolChaining();
+      await this.initializePerformanceMonitoring();
       
       this.initialized = true;
-      this.logger.info('✅ Tool orchestrator initialized successfully');
+      this.logger.info('✅ Enhanced tool orchestrator initialized successfully');
       
     } catch (error) {
       this.logger.error('❌ Failed to initialize tool orchestrator', error);
@@ -195,6 +200,76 @@ class ToolOrchestrator {
     };
   }
 
+  setupPerformanceOptimization() {
+    // ENTERPRISE: Advanced performance optimization strategies
+    this.performanceOptimization = {
+      caching: {
+        enabled: true,
+        strategy: 'smart_invalidation',
+        cache: new Map(),
+        maxSize: 500,
+        ttl: 300000, // 5 minutes
+        hitRate: 0
+      },
+
+      loadBalancing: {
+        enabled: true,
+        strategy: 'least_loaded',
+        toolLoads: new Map(),
+        maxConcurrentPerTool: 5,
+        globalMaxConcurrent: 20
+      },
+
+      failoverStrategies: {
+        'gmail': ['claude_flow_email_templates', 'twilio'],
+        'twilio': ['gmail', 'claude_flow_slack'],
+        'crm': ['claude_flow_database_connector', 'local_storage'],
+        'market_analyzer': ['claude_flow_visualization_engine', 'cached_analysis'],
+        'document_processor': ['claude_flow_text_processor', 'manual_processing']
+      },
+
+      circuitBreaker: {
+        enabled: true,
+        failureThreshold: 5,
+        recoveryTimeout: 30000,
+        halfOpenTestLimit: 3,
+        openCircuits: new Set(),
+        circuitStates: new Map() // 'closed', 'open', 'half-open'
+      },
+
+      rateLimiting: {
+        enabled: true,
+        globalRpm: 1000, // Global requests per minute
+        perToolRpm: new Map([
+          ['gmail', 100],
+          ['twilio', 200],
+          ['crm', 300],
+          ['market_analyzer', 100],
+          ['document_processor', 50],
+          ['calendar', 150]
+        ]),
+        requestCounts: new Map(),
+        windowStart: Date.now()
+      },
+
+      healthMonitoring: {
+        enabled: true,
+        checkInterval: 30000, // 30 seconds
+        healthScores: new Map(),
+        performanceMetrics: new Map()
+      }
+    };
+
+    this.toolPerformanceStats = new Map();
+    this.coordinationMetrics = {
+      totalCoordinations: 0,
+      successfulCoordinations: 0,
+      averageExecutionTime: 0,
+      toolUsageStats: new Map(),
+      errorPatterns: new Map()
+    };
+  }
+
   async initializeExistingTools() {
     // Initialize connections to existing super-tools
     this.existingToolConnections = {
@@ -282,57 +357,112 @@ class ToolOrchestrator {
   }
 
   async coordinateTools(request) {
-    const timer = this.logger.startTimer('tool-coordination');
+    const coordinationId = uuidv4();
+    const timer = this.logger.startTimer(`tool-coordination-${coordinationId}`);
     
     try {
-      const { intent, context, priority = 'medium' } = request;
+      const { intent, context, priority = 'medium', parameters } = request;
       
-      this.logger.debug('Coordinating tools', { 
+      this.logger.info('🔧 Starting enhanced tool coordination', {
+        coordinationId,
         intent, 
         priority,
-        contextKeys: Object.keys(context || {})
+        contextKeys: Object.keys(context || {}),
+        toolsRequested: request.tools?.length || 'auto-detect'
       });
 
-      // Step 1: Analyze intent and select optimal tools
-      const toolSelection = await this.selectTools(intent, context);
+      // METRICS: Track coordination attempt
+      this.coordinationMetrics.totalCoordinations++;
+
+      // PERFORMANCE: Check rate limiting
+      const rateLimitCheck = this.checkRateLimit();
+      if (!rateLimitCheck.allowed) {
+        throw new Error(`Rate limit exceeded: ${rateLimitCheck.reason}`);
+      }
+
+      // STEP 1: Analyze intent and select optimal tools
+      const toolSelection = await this.selectTools(intent, context, parameters);
       
-      // Step 2: Determine execution strategy
+      // STEP 2: Determine execution strategy
       const strategy = this.determineExecutionStrategy(toolSelection, priority);
       
-      // Step 3: Execute tools according to strategy
-      const results = await this.executeToolStrategy(toolSelection, strategy, context);
+      // STEP 3: Security validation through sandbox
+      const securityValidation = await this.validateCoordinationSecurity(
+        toolSelection, strategy, context, coordinationId
+      );
+      if (!securityValidation.allowed) {
+        throw new Error(`Security validation failed: ${securityValidation.reason}`);
+      }
+
+      // STEP 4: Execute tools with enterprise monitoring
+      const results = await this.executeToolStrategyEnhanced(
+        toolSelection, strategy, context, coordinationId
+      );
       
-      // Step 4: Aggregate and format results
+      // STEP 5: Aggregate and format results
       const aggregatedResults = this.aggregateResults(results, intent);
       
-      timer.end('Tool coordination completed');
+      // STEP 6: Update performance metrics
+      this.updateCoordinationMetrics(toolSelection, results, timer.duration);
+
+      // AUDIT: Log successful coordination
+      await this.auditTrail.logExecutionComplete({
+        coordinationId,
+        sessionId: context?.sessionId,
+        success: true,
+        toolsUsed: toolSelection.selected.map(t => t.name),
+        processingTime: timer.duration,
+        strategy: strategy.type,
+        resultSummary: aggregatedResults.summary
+      });
+
+      timer.end('Enhanced tool coordination completed');
+      this.coordinationMetrics.successfulCoordinations++;
       
       return {
         success: true,
+        coordinationId,
         coordinationType: strategy.type,
         toolsExecuted: toolSelection.selected.map(t => t.name),
         results: aggregatedResults,
         executionTime: timer.duration || 0,
+        performance: {
+          cacheHitRate: this.performanceOptimization.caching.hitRate,
+          loadBalanced: strategy.loadBalanced || false,
+          securityLevel: securityValidation.securityLevel
+        },
         metadata: {
           intent,
           strategy: strategy.description,
-          toolCount: toolSelection.selected.length
+          toolCount: toolSelection.selected.length,
+          coordinationId
         }
       };
       
     } catch (error) {
-      timer.end('Tool coordination failed');
-      this.logger.error('❌ Tool coordination failed', error);
+      timer.end('Enhanced tool coordination failed');
+      this.logger.error('❌ Enhanced tool coordination failed', error, { coordinationId });
+
+      // AUDIT: Log failed coordination
+      await this.auditTrail.logExecutionComplete({
+        coordinationId,
+        sessionId: context?.sessionId,
+        success: false,
+        error: error.message,
+        processingTime: timer.duration
+      });
       
       return {
         success: false,
+        coordinationId,
         error: error.message,
-        fallback: await this.generateFallbackResponse(request)
+        fallback: await this.generateFallbackResponse(request),
+        recovery: await this.suggestRecoveryActions(request, error)
       };
     }
   }
 
-  async selectTools(intent, context) {
+  async selectTools(intent, context, parameters = {}) {
     // Intelligent tool selection based on intent and context
     const selection = {
       selected: [],
@@ -715,6 +845,592 @@ class ToolOrchestrator {
     };
   }
 
+  // ================= ENTERPRISE PERFORMANCE METHODS =================
+
+  checkRateLimit() {
+    const now = Date.now();
+    const windowDuration = 60000; // 1 minute
+
+    // Reset window if needed
+    if (now - this.performanceOptimization.rateLimiting.windowStart > windowDuration) {
+      this.performanceOptimization.rateLimiting.requestCounts.clear();
+      this.performanceOptimization.rateLimiting.windowStart = now;
+    }
+
+    // Check global rate limit
+    const globalCount = Array.from(this.performanceOptimization.rateLimiting.requestCounts.values())
+                            .reduce((sum, count) => sum + count, 0);
+    
+    if (globalCount >= this.performanceOptimization.rateLimiting.globalRpm) {
+      return { allowed: false, reason: 'Global rate limit exceeded' };
+    }
+
+    return { allowed: true };
+  }
+
+  async validateCoordinationSecurity(toolSelection, strategy, context, coordinationId) {
+    if (!this.executionSandbox) {
+      return { allowed: true, securityLevel: 'basic' };
+    }
+
+    try {
+      const securityValidation = await this.executionSandbox.validateExecution({
+        tool: 'tool_orchestrator',
+        action: 'coordinate_tools',
+        parameters: {
+          toolCount: toolSelection.selected.length,
+          tools: toolSelection.selected.map(t => t.name),
+          strategy: strategy.type
+        },
+        context
+      }, coordinationId);
+
+      return securityValidation;
+    } catch (error) {
+      this.logger.error('❌ Security validation failed', error);
+      return { allowed: false, reason: 'Security validation error' };
+    }
+  }
+
+  async executeToolStrategyEnhanced(toolSelection, strategy, context, coordinationId) {
+    const results = [];
+    
+    try {
+      switch (strategy.type) {
+        case 'single_tool':
+          results.push(await this.executeSingleToolEnhanced(toolSelection.selected[0], context, coordinationId));
+          break;
+          
+        case 'parallel_execution':
+          const parallelResults = await this.executeParallelEnhanced(toolSelection.selected, context, coordinationId);
+          results.push(...parallelResults);
+          break;
+          
+        case 'intelligent_orchestration':
+          const orchestratedResults = await this.executeIntelligentOrchestrationEnhanced(toolSelection.selected, context, coordinationId);
+          results.push(...orchestratedResults);
+          break;
+          
+        default:
+          // Fallback to basic execution
+          const fallbackResults = await this.executeToolStrategy(toolSelection, strategy, context);
+          results.push(...fallbackResults);
+      }
+    } catch (error) {
+      this.logger.error('❌ Enhanced strategy execution failed', error);
+      throw error;
+    }
+    
+    return results;
+  }
+
+  async executeSingleToolEnhanced(tool, context, coordinationId) {
+    const toolStartTime = Date.now();
+    
+    try {
+      // Check cache first
+      const cacheResult = await this.checkToolCache(tool, context);
+      if (cacheResult.hit) {
+        this.updateCacheHitRate(true);
+        return {
+          ...cacheResult.result,
+          cached: true,
+          executionTime: Date.now() - toolStartTime
+        };
+      }
+      this.updateCacheHitRate(false);
+
+      // Check circuit breaker
+      if (this.isCircuitOpen(tool.name)) {
+        throw new Error(`Circuit breaker open for tool: ${tool.name}`);
+      }
+
+      // Execute through sandbox if available
+      let result;
+      if (this.executionSandbox) {
+        const sandboxResult = await this.executionSandbox.executeSecurely({
+          tool: tool.name,
+          action: context.action || 'execute',
+          parameters: context.parameters || {},
+          context: { ...context, coordinationId }
+        });
+        
+        result = {
+          tool: tool.name,
+          success: sandboxResult.success,
+          data: sandboxResult.result,
+          executionTime: sandboxResult.executionTime || (Date.now() - toolStartTime),
+          security: sandboxResult.securityLevel,
+          registry: tool.registry
+        };
+      } else {
+        // Fallback to basic execution
+        result = await this.executeSingleTool(tool, context);
+        result.executionTime = Date.now() - toolStartTime;
+      }
+
+      // Update performance stats
+      this.updateToolPerformanceStats(tool.name, result.executionTime, result.success);
+
+      // Cache successful results
+      if (result.success && this.performanceOptimization.caching.enabled) {
+        await this.cacheToolResult(tool, context, result);
+      }
+
+      return result;
+
+    } catch (error) {
+      const executionTime = Date.now() - toolStartTime;
+      this.updateToolPerformanceStats(tool.name, executionTime, false);
+      this.updateCircuitBreaker(tool.name, false);
+      
+      // Try failover if available
+      const failoverResult = await this.attemptFailover(tool, context, error);
+      if (failoverResult.success) {
+        return failoverResult;
+      }
+
+      throw error;
+    }
+  }
+
+  async executeParallelEnhanced(tools, context, coordinationId) {
+    // Enhanced parallel execution with load balancing
+    const loadBalancedTools = this.applyLoadBalancing(tools);
+    
+    const toolPromises = loadBalancedTools.map(async (tool) => {
+      this.incrementToolLoad(tool.name);
+      
+      try {
+        const result = await this.executeSingleToolEnhanced(tool, context, coordinationId);
+        return result;
+      } finally {
+        this.decrementToolLoad(tool.name);
+      }
+    });
+
+    const results = await Promise.allSettled(toolPromises);
+    
+    return results.map(result => 
+      result.status === 'fulfilled' ? result.value : { 
+        success: false, 
+        error: result.reason.message || result.reason,
+        executionTime: 0
+      }
+    );
+  }
+
+  async executeIntelligentOrchestrationEnhanced(tools, context, coordinationId) {
+    // Enhanced intelligent orchestration with optimization
+    const results = [];
+    const executionPlan = this.createOptimizedExecutionPlan(tools, context);
+    
+    for (const phase of executionPlan) {
+      const phaseStartTime = Date.now();
+      
+      // Execute phase with monitoring
+      const phasePromises = phase.tools.map(tool => {
+        this.incrementToolLoad(tool.name);
+        return this.executeSingleToolEnhanced(tool, context, coordinationId)
+                   .finally(() => this.decrementToolLoad(tool.name));
+      });
+
+      const phaseResults = await Promise.allSettled(phasePromises);
+      const processedResults = phaseResults.map(r => 
+        r.status === 'fulfilled' ? r.value : { 
+          success: false, 
+          error: r.reason.message || r.reason,
+          executionTime: Date.now() - phaseStartTime
+        }
+      );
+
+      results.push(...processedResults);
+
+      // Inter-phase optimization pause
+      if (phase.pauseAfter && executionPlan.indexOf(phase) < executionPlan.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, phase.pauseAfter));
+      }
+    }
+    
+    return results;
+  }
+
+  createOptimizedExecutionPlan(tools, context) {
+    // Create optimized execution plan with performance considerations
+    const plan = [];
+    
+    // Phase 1: High-priority, fast tools
+    const highPriorityFast = tools.filter(t => 
+      (t.priority === 'critical' || t.priority === 'high') &&
+      this.getToolAverageResponseTime(t.name) < 10000
+    );
+    if (highPriorityFast.length > 0) {
+      plan.push({ 
+        tools: highPriorityFast, 
+        description: 'High priority fast tools',
+        pauseAfter: 500
+      });
+    }
+    
+    // Phase 2: Medium priority tools
+    const mediumPriority = tools.filter(t => 
+      t.priority === 'medium' && !highPriorityFast.includes(t)
+    );
+    if (mediumPriority.length > 0) {
+      plan.push({ 
+        tools: mediumPriority, 
+        description: 'Medium priority tools',
+        pauseAfter: 1000
+      });
+    }
+    
+    // Phase 3: Slow or low priority tools
+    const remaining = tools.filter(t => 
+      !highPriorityFast.includes(t) && !mediumPriority.includes(t)
+    );
+    if (remaining.length > 0) {
+      plan.push({ 
+        tools: remaining, 
+        description: 'Remaining tools',
+        pauseAfter: 0
+      });
+    }
+    
+    return plan;
+  }
+
+  // ================= PERFORMANCE OPTIMIZATION METHODS =================
+
+  async checkToolCache(tool, context) {
+    if (!this.performanceOptimization.caching.enabled) {
+      return { hit: false };
+    }
+
+    const cacheKey = this.generateCacheKey(tool, context);
+    const cached = this.performanceOptimization.caching.cache.get(cacheKey);
+
+    if (cached && (Date.now() - cached.timestamp) < this.performanceOptimization.caching.ttl) {
+      return { hit: true, result: cached.result };
+    }
+
+    return { hit: false };
+  }
+
+  generateCacheKey(tool, context) {
+    const keyData = {
+      tool: tool.name,
+      action: context.action,
+      parameters: context.parameters,
+      sessionContext: context.sessionId
+    };
+    
+    return JSON.stringify(keyData).replace(/\s/g, '');
+  }
+
+  async cacheToolResult(tool, context, result) {
+    const cacheKey = this.generateCacheKey(tool, context);
+    const cache = this.performanceOptimization.caching.cache;
+    
+    // LRU eviction
+    if (cache.size >= this.performanceOptimization.caching.maxSize) {
+      const firstKey = cache.keys().next().value;
+      cache.delete(firstKey);
+    }
+    
+    cache.set(cacheKey, {
+      result,
+      timestamp: Date.now()
+    });
+  }
+
+  updateCacheHitRate(hit) {
+    const current = this.performanceOptimization.caching.hitRate;
+    const total = this.coordinationMetrics.totalCoordinations;
+    
+    if (hit) {
+      this.performanceOptimization.caching.hitRate = ((current * (total - 1)) + 1) / total;
+    } else {
+      this.performanceOptimization.caching.hitRate = (current * (total - 1)) / total;
+    }
+  }
+
+  applyLoadBalancing(tools) {
+    if (!this.performanceOptimization.loadBalancing.enabled) {
+      return tools;
+    }
+
+    const strategy = this.performanceOptimization.loadBalancing.strategy;
+    
+    if (strategy === 'least_loaded') {
+      return tools.sort((a, b) => {
+        const aLoad = this.performanceOptimization.loadBalancing.toolLoads.get(a.name) || 0;
+        const bLoad = this.performanceOptimization.loadBalancing.toolLoads.get(b.name) || 0;
+        return aLoad - bLoad;
+      });
+    }
+    
+    return tools;
+  }
+
+  incrementToolLoad(toolName) {
+    const current = this.performanceOptimization.loadBalancing.toolLoads.get(toolName) || 0;
+    this.performanceOptimization.loadBalancing.toolLoads.set(toolName, current + 1);
+  }
+
+  decrementToolLoad(toolName) {
+    const current = this.performanceOptimization.loadBalancing.toolLoads.get(toolName) || 0;
+    this.performanceOptimization.loadBalancing.toolLoads.set(toolName, Math.max(0, current - 1));
+  }
+
+  isCircuitOpen(toolName) {
+    return this.performanceOptimization.circuitBreaker.openCircuits.has(toolName);
+  }
+
+  updateCircuitBreaker(toolName, success) {
+    if (!this.performanceOptimization.circuitBreaker.enabled) return;
+
+    const stats = this.toolPerformanceStats.get(toolName) || { failures: 0, lastFailure: null };
+    
+    if (success) {
+      stats.failures = 0;
+    } else {
+      stats.failures = (stats.failures || 0) + 1;
+      stats.lastFailure = Date.now();
+      
+      if (stats.failures >= this.performanceOptimization.circuitBreaker.failureThreshold) {
+        this.performanceOptimization.circuitBreaker.openCircuits.add(toolName);
+        
+        this.logger.warn(`🔌 Circuit breaker opened for tool: ${toolName}`, {
+          failures: stats.failures,
+          threshold: this.performanceOptimization.circuitBreaker.failureThreshold
+        });
+
+        // Schedule recovery
+        setTimeout(() => {
+          this.performanceOptimization.circuitBreaker.openCircuits.delete(toolName);
+          stats.failures = 0;
+          this.logger.info(`🔌 Circuit breaker closed for tool: ${toolName}`);
+        }, this.performanceOptimization.circuitBreaker.recoveryTimeout);
+      }
+    }
+    
+    this.toolPerformanceStats.set(toolName, stats);
+  }
+
+  async attemptFailover(tool, context, originalError) {
+    const failoverOptions = this.performanceOptimization.failoverStrategies[tool.name];
+    if (!failoverOptions || failoverOptions.length === 0) {
+      return { success: false, error: 'No failover options available' };
+    }
+
+    for (const alternativeTool of failoverOptions) {
+      try {
+        this.logger.info(`🔄 Attempting failover: ${tool.name} -> ${alternativeTool}`);
+        
+        // Create alternative tool object
+        const alternative = this.findToolByName(alternativeTool);
+        if (!alternative || this.isCircuitOpen(alternativeTool)) {
+          continue;
+        }
+
+        const failoverResult = await this.executeSingleToolEnhanced(alternative, context, 'failover');
+        
+        if (failoverResult.success) {
+          this.logger.info(`✅ Failover successful: ${tool.name} -> ${alternativeTool}`);
+          
+          return {
+            ...failoverResult,
+            failover: true,
+            originalTool: tool.name,
+            failoverTool: alternativeTool
+          };
+        }
+      } catch (error) {
+        this.logger.warn(`Failover attempt failed: ${alternativeTool}`, error);
+      }
+    }
+
+    return { success: false, error: 'All failover attempts failed' };
+  }
+
+  findToolByName(toolName) {
+    // Search in super-tools first
+    if (this.toolRegistry.super_tools[toolName]) {
+      return {
+        name: toolName,
+        ...this.toolRegistry.super_tools[toolName],
+        registry: 'super_tools'
+      };
+    }
+    
+    // Search in Claude Flow tools
+    if (this.toolRegistry.claude_flow_tools[toolName]) {
+      return {
+        name: toolName,
+        ...this.toolRegistry.claude_flow_tools[toolName],
+        registry: 'claude_flow_tools'
+      };
+    }
+    
+    return null;
+  }
+
+  updateToolPerformanceStats(toolName, executionTime, success) {
+    const stats = this.toolPerformanceStats.get(toolName) || {
+      totalExecutions: 0,
+      successfulExecutions: 0,
+      totalTime: 0,
+      averageTime: 0,
+      successRate: 0
+    };
+    
+    stats.totalExecutions++;
+    stats.totalTime += executionTime;
+    stats.averageTime = stats.totalTime / stats.totalExecutions;
+    
+    if (success) {
+      stats.successfulExecutions++;
+    }
+    
+    stats.successRate = (stats.successfulExecutions / stats.totalExecutions) * 100;
+    
+    this.toolPerformanceStats.set(toolName, stats);
+  }
+
+  getToolAverageResponseTime(toolName) {
+    const stats = this.toolPerformanceStats.get(toolName);
+    return stats?.averageTime || 5000; // Default 5 seconds
+  }
+
+  updateCoordinationMetrics(toolSelection, results, executionTime) {
+    // Update overall coordination metrics
+    const metrics = this.coordinationMetrics;
+    
+    // Update average execution time
+    metrics.averageExecutionTime = 
+      ((metrics.averageExecutionTime * (metrics.totalCoordinations - 1)) + executionTime) / 
+      metrics.totalCoordinations;
+
+    // Update tool usage stats
+    for (const tool of toolSelection.selected) {
+      const currentUsage = metrics.toolUsageStats.get(tool.name) || 0;
+      metrics.toolUsageStats.set(tool.name, currentUsage + 1);
+    }
+  }
+
+  async initializePerformanceMonitoring() {
+    // Start performance monitoring intervals
+    if (this.performanceOptimization.healthMonitoring.enabled) {
+      setInterval(() => this.performHealthChecks(), 
+        this.performanceOptimization.healthMonitoring.checkInterval);
+      
+      setInterval(() => this.optimizePerformance(), 120000); // Every 2 minutes
+    }
+  }
+
+  async performHealthChecks() {
+    // Check health of all tools and update health scores
+    for (const toolName of Object.keys(this.toolRegistry.super_tools)) {
+      try {
+        const healthScore = await this.checkToolHealth(toolName);
+        this.performanceOptimization.healthMonitoring.healthScores.set(toolName, healthScore);
+      } catch (error) {
+        this.logger.error(`Health check failed for ${toolName}`, error);
+        this.performanceOptimization.healthMonitoring.healthScores.set(toolName, 0);
+      }
+    }
+  }
+
+  async checkToolHealth(toolName) {
+    const stats = this.toolPerformanceStats.get(toolName);
+    if (!stats) return 50; // No data, neutral health
+
+    let healthScore = 100;
+    
+    // Penalize for low success rate
+    if (stats.successRate < 90) healthScore -= (90 - stats.successRate);
+    
+    // Penalize for slow response times
+    if (stats.averageTime > 10000) healthScore -= Math.min(30, (stats.averageTime - 10000) / 1000);
+    
+    // Circuit breaker penalty
+    if (this.isCircuitOpen(toolName)) healthScore = 0;
+    
+    return Math.max(0, healthScore);
+  }
+
+  async optimizePerformance() {
+    // Periodic performance optimization
+    this.optimizeCacheSize();
+    this.adjustLoadBalancing();
+    this.updateCircuitBreakerThresholds();
+  }
+
+  optimizeCacheSize() {
+    const hitRate = this.performanceOptimization.caching.hitRate;
+    const currentSize = this.performanceOptimization.caching.maxSize;
+    
+    if (hitRate > 0.8 && currentSize < 1000) {
+      // High hit rate, increase cache size
+      this.performanceOptimization.caching.maxSize = Math.min(1000, currentSize + 50);
+    } else if (hitRate < 0.3 && currentSize > 100) {
+      // Low hit rate, decrease cache size
+      this.performanceOptimization.caching.maxSize = Math.max(100, currentSize - 50);
+    }
+  }
+
+  adjustLoadBalancing() {
+    // Adjust load balancing based on performance
+    const overloadedTools = [];
+    
+    for (const [toolName, load] of this.performanceOptimization.loadBalancing.toolLoads.entries()) {
+      const maxLoad = this.performanceOptimization.loadBalancing.maxConcurrentPerTool;
+      if (load >= maxLoad * 0.9) {
+        overloadedTools.push(toolName);
+      }
+    }
+    
+    if (overloadedTools.length > 0) {
+      this.logger.warn('🚨 Tools approaching capacity', { overloadedTools });
+    }
+  }
+
+  updateCircuitBreakerThresholds() {
+    // Dynamic threshold adjustment based on system performance
+    const globalSuccessRate = this.coordinationMetrics.totalCoordinations > 0 
+      ? (this.coordinationMetrics.successfulCoordinations / this.coordinationMetrics.totalCoordinations) * 100
+      : 100;
+
+    if (globalSuccessRate < 80) {
+      // Lower thresholds during poor system performance
+      this.performanceOptimization.circuitBreaker.failureThreshold = 3;
+    } else {
+      // Normal thresholds during good system performance
+      this.performanceOptimization.circuitBreaker.failureThreshold = 5;
+    }
+  }
+
+  async suggestRecoveryActions(request, error) {
+    const suggestions = [];
+    
+    if (error.message.includes('rate limit')) {
+      suggestions.push('Try again in a few moments when rate limits reset');
+      suggestions.push('Consider prioritizing only essential tools for your request');
+    }
+    
+    if (error.message.includes('circuit breaker')) {
+      suggestions.push('Some tools are currently experiencing issues');
+      suggestions.push('Try using alternative approaches or simplified requests');
+    }
+    
+    if (error.message.includes('security')) {
+      suggestions.push('Your request may contain sensitive parameters');
+      suggestions.push('Try rephrasing your request with less specific details');
+    }
+    
+    return suggestions;
+  }
+
   async getToolStatus() {
     const status = {
       initialized: this.initialized,
@@ -727,14 +1443,34 @@ class ToolOrchestrator {
         workflows: Object.keys(this.coordinationRules).length,
         chains: this.toolChains.size,
         strategies: Object.keys(this.executionStrategies).length
+      },
+      performance: {
+        totalCoordinations: this.coordinationMetrics.totalCoordinations,
+        successfulCoordinations: this.coordinationMetrics.successfulCoordinations,
+        successRate: this.coordinationMetrics.totalCoordinations > 0 
+          ? (this.coordinationMetrics.successfulCoordinations / this.coordinationMetrics.totalCoordinations) * 100 
+          : 0,
+        averageExecutionTime: this.coordinationMetrics.averageExecutionTime,
+        cacheHitRate: this.performanceOptimization.caching.hitRate * 100,
+        activeCircuitBreakers: this.performanceOptimization.circuitBreaker.openCircuits.size
       }
     };
 
     // Check super-tool connectivity
     for (const [toolName, connection] of Object.entries(this.existingToolConnections)) {
+      const healthScore = this.performanceOptimization.healthMonitoring.healthScores.get(toolName) || 50;
+      const performanceStats = this.toolPerformanceStats.get(toolName);
+      
       status.superTools[toolName] = {
         connected: connection.status === 'ready',
-        authenticated: connection.authenticated
+        authenticated: connection.authenticated,
+        healthScore,
+        circuitOpen: this.isCircuitOpen(toolName),
+        performance: performanceStats ? {
+          averageResponseTime: performanceStats.averageTime,
+          successRate: performanceStats.successRate,
+          totalExecutions: performanceStats.totalExecutions
+        } : null
       };
     }
 
