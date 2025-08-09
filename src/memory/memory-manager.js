@@ -2,6 +2,7 @@
  * 💾 SolAI Memory Manager
  * Three-tier memory system for intelligent conversation persistence
  */
+const axios = require('axios');
 
 const Redis = require('ioredis');
 const { createClient } = require('@supabase/supabase-js');
@@ -37,35 +38,42 @@ class MemoryManager {
 
   async initializeRedis() {
     try {
-      // Skip Redis if not configured
-      if (!process.env.REDIS_URL) {
-        this.logger.warn('⚠️ Redis not configured, using in-memory fallback');
-        this.redis = null;
+      if (process.env.DISABLE_REDIS === 'true') {
+        this.logger.warn('⚠️ Redis disabled by DISABLE_REDIS=true; using in-process memory.');
+        this.redis = new Map();
         return;
       }
-      
+  
       const redisUrl = process.env.REDIS_URL;
-      
-      this.redis = new Redis(redisUrl, {
-        retryDelayOnFailover: 1000,
-        maxRetriesPerRequest: 3,
+      if (!redisUrl) {
+        this.logger.warn('⚠️ REDIS_URL not set; using in-process memory.');
+        this.redis = new Map();
+        return;
+      }
+  
+      this.logger.info(`ℹ️ Using REDIS_URL: ${redisUrl}`);
+  
+      this.redis = new (require('ioredis'))(redisUrl, {
         lazyConnect: true,
-        keepAlive: 30000
+        maxRetriesPerRequest: 0,
+        retryStrategy() { return null; }, // no infinite retries
+        enableReadyCheck: false,
+        keepAlive: 30_000,
       });
-
+  
+      // Attach error listener BEFORE connect to avoid unhandled event spam
+      this.redis.on('error', (e) => this.logger.warn('Redis client error', e?.message || e));
+  
       await this.redis.connect();
-      
-      // Test connection
       await this.redis.ping();
-      
       this.logger.info('✅ Redis (working memory) connected');
-      
     } catch (error) {
-      this.logger.warn('⚠️ Redis connection failed, using in-memory fallback', error);
-      this.redis = new Map(); // Fallback to in-memory storage
+      this.logger.warn('⚠️ Redis connect failed; falling back to in-process memory', error?.message || error);
+      try { this.redis?.disconnect?.(); } catch {}
+      this.redis = new Map();
     }
   }
-
+  
   async initializeSupabase() {
     try {
       const supabaseUrl = process.env.SUPABASE_URL;
@@ -213,24 +221,86 @@ class MemoryManager {
 
   async generateQueryEmbedding(query) {
     try {
-      const response = await axios.post(this.embeddingService.endpoint, {
-        model: this.embeddingService.model,
-        input: query
-      }, {
-        headers: {
-          'Authorization': `Bearer ${this.embeddingService.apiKey}`,
-          'Content-Type': 'application/json'
-        },
-        timeout: 8000
-      });
-
-      return response.data.data[0].embedding;
-      
+      // skip if embeddings not configured or trivial input
+      if (!this.embeddingService?.apiKey) return null;
+      if (!query || String(query).trim().length < 6) return null;
+  
+      const cacheKey = this.hashText(`q:${this.embeddingService.model}:${query}`);
+      if (this.embeddingService.cache?.has(cacheKey)) {
+        return this.embeddingService.cache.get(cacheKey);
+      }
+  
+      const payload = {
+        model: this.embeddingService.model || 'text-embedding-3-small',
+        input: query,
+      };
+  
+      const headers = {
+        'Authorization': `Bearer ${this.embeddingService.apiKey}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      };
+  
+      // simple exponential backoff for 429s / transient errors
+      const maxAttempts = 5;
+      let attempt = 0;
+      let lastErr;
+  
+      while (attempt < maxAttempts) {
+        try {
+          const res = await axios.post(
+            this.embeddingService.endpoint || 'https://api.openai.com/v1/embeddings',
+            payload,
+            { headers, timeout: 20000 }
+          );
+          const embedding = res?.data?.data?.[0]?.embedding || null;
+          if (embedding) {
+            // LRU cache (bounded)
+            const cache = this.embeddingService.cache || new Map();
+            this.embeddingService.cache = cache;
+            const maxSize = this.embeddingService.maxCacheSize || 500;
+            if (cache.size >= maxSize) {
+              const firstKey = cache.keys().next().value;
+              cache.delete(firstKey);
+            }
+            cache.set(cacheKey, embedding);
+          }
+          return embedding;
+        } catch (err) {
+          lastErr = err;
+          const status = err?.response?.status;
+          const body = err?.response?.data;
+          const textBody = typeof body === 'string' ? body : JSON.stringify(body || {});
+          // Respect Retry-After on 429, else exponential backoff + jitter
+          if (status === 429 && attempt < maxAttempts - 1) {
+            const ra = err?.response?.headers?.['retry-after'];
+            const waitMs = ra ? Number(ra) * 1000 : Math.min(2 ** attempt * 500, 10000) + Math.floor(Math.random() * 300);
+            this.logger.warn('⚠️ Embeddings rate-limited; retrying', { attempt: attempt + 1, waitMs, status, body: textBody.slice(0, 200) });
+            await new Promise(r => setTimeout(r, waitMs));
+            attempt++;
+            continue;
+          }
+          // For non-429 or final attempt, throw
+          this.logger.error('❌ Embedding API request failed', {
+            status,
+            body: textBody.slice(0, 500),
+            message: err?.message,
+          });
+          throw err;
+        }
+      }
+  
+      // If we somehow exit loop
+      if (lastErr) throw lastErr;
+      return null;
     } catch (error) {
-      this.logger.error('❌ Query embedding generation failed', error);
+      this.logger.error('❌ Query embedding generation failed', {
+        error: { message: error?.message || '<no message>', stack: error?.stack || '<no stack>' }
+      });
       return null;
     }
   }
+  
 
   async performVectorSearch(queryEmbedding, threshold, limit) {
     // In a real implementation, this would use Pinecone SDK
