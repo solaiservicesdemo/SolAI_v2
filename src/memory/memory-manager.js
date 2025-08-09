@@ -123,11 +123,11 @@ class MemoryManager {
         initialized: false
       };
 
-      // Initialize embedding service for semantic search
+      // Initialize embedding service for semantic search (using OpenRouter, not OpenAI)
       this.embeddingService = {
         model: 'text-embedding-3-small',
-        endpoint: 'https://api.openai.com/v1/embeddings',
-        apiKey: process.env.OPENAI_API_KEY,
+        endpoint: 'https://openrouter.ai/api/v1/embeddings',
+        apiKey: process.env.OPENROUTER_API_KEY,
         cache: new Map(),
         maxCacheSize: 500
       };
@@ -155,7 +155,7 @@ class MemoryManager {
         return this.embeddingService.cache.get(cacheKey);
       }
 
-      // Generate embedding
+      // Generate embedding via OpenRouter
       const response = await axios.post(this.embeddingService.endpoint, {
         model: this.embeddingService.model,
         input: textToEmbed
@@ -249,7 +249,7 @@ class MemoryManager {
       while (attempt < maxAttempts) {
         try {
           const res = await axios.post(
-            this.embeddingService.endpoint || 'https://api.openai.com/v1/embeddings',
+            this.embeddingService.endpoint || 'https://openrouter.ai/api/v1/embeddings',
             payload,
             { headers, timeout: 20000 }
           );
