@@ -60,11 +60,206 @@
       padding: 40px;
     }
 
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 30px;
+      margin-bottom: 30px;
+    }
+
     .chat-interface {
       background: #f8f9fa;
       border-radius: 15px;
       padding: 30px;
-      margin-bottom: 30px;
+    }
+
+    /* Notifications Section Styling */
+    .notifications-section {
+      background: #f8f9fa;
+      border-radius: 15px;
+      padding: 30px;
+      max-height: 600px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .notifications-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .notifications-header h3 {
+      margin: 0;
+      color: #333;
+    }
+
+    .notifications-controls {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .filter-btn, .refresh-btn {
+      padding: 6px 12px;
+      border: 1px solid #dee2e6;
+      background: white;
+      border-radius: 20px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .filter-btn:hover, .refresh-btn:hover {
+      background: #e9ecef;
+    }
+
+    .filter-btn.active {
+      background: #007bff;
+      color: white;
+      border-color: #007bff;
+    }
+
+    .refresh-btn {
+      background: #28a745;
+      color: white;
+      border-color: #28a745;
+      font-weight: bold;
+    }
+
+    .notifications-container {
+      flex: 1;
+      overflow-y: auto;
+      min-height: 300px;
+    }
+
+    .notification-item {
+      background: white;
+      border-radius: 10px;
+      padding: 15px;
+      margin-bottom: 12px;
+      border-left: 4px solid #6c757d;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+      transition: all 0.3s ease;
+      cursor: pointer;
+    }
+
+    .notification-item:hover {
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      transform: translateY(-1px);
+    }
+
+    /* Priority Colors */
+    .notification-item.urgent {
+      border-left-color: #dc3545;
+      background: linear-gradient(90deg, rgba(220, 53, 69, 0.05) 0%, white 100%);
+    }
+
+    .notification-item.high {
+      border-left-color: #fd7e14;
+      background: linear-gradient(90deg, rgba(253, 126, 20, 0.05) 0%, white 100%);
+    }
+
+    .notification-item.medium {
+      border-left-color: #007bff;
+      background: linear-gradient(90deg, rgba(0, 123, 255, 0.05) 0%, white 100%);
+    }
+
+    .notification-item.low {
+      border-left-color: #28a745;
+      background: linear-gradient(90deg, rgba(40, 167, 69, 0.05) 0%, white 100%);
+    }
+
+    .notification-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 8px;
+    }
+
+    .notification-title {
+      font-weight: 600;
+      color: #333;
+      margin: 0;
+      flex: 1;
+    }
+
+    .notification-priority {
+      font-size: 10px;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-left: 10px;
+    }
+
+    .notification-priority.urgent {
+      background: #dc3545;
+      color: white;
+    }
+
+    .notification-priority.high {
+      background: #fd7e14;
+      color: white;
+    }
+
+    .notification-priority.medium {
+      background: #007bff;
+      color: white;
+    }
+
+    .notification-priority.low {
+      background: #28a745;
+      color: white;
+    }
+
+    .notification-message {
+      color: #666;
+      margin: 8px 0;
+      font-size: 14px;
+      line-height: 1.4;
+    }
+
+    .notification-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 10px;
+      font-size: 12px;
+      color: #888;
+    }
+
+    .notification-time {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .notification-type {
+      background: #e9ecef;
+      padding: 2px 6px;
+      border-radius: 8px;
+      font-size: 10px;
+    }
+
+    .no-notifications, .notifications-loading {
+      text-align: center;
+      padding: 40px 20px;
+      color: #6c757d;
+    }
+
+    .no-notifications p {
+      font-size: 16px;
+      margin-bottom: 8px;
+    }
+
+    .no-notifications small {
+      font-size: 14px;
+      opacity: 0.8;
     }
 
     .chat-messages {
@@ -205,6 +400,30 @@
         padding: 20px;
       }
       
+      .dashboard-grid {
+        grid-template-columns: 1fr;
+        gap: 20px;
+      }
+      
+      .chat-interface,
+      .notifications-section {
+        padding: 20px;
+      }
+      
+      .notifications-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 15px;
+      }
+      
+      .notifications-header h3 {
+        text-align: center;
+      }
+      
+      .notifications-controls {
+        justify-content: center;
+      }
+      
       .status-grid {
         grid-template-columns: 1fr;
       }
@@ -225,29 +444,58 @@
       </div>
 
       <div class="dashboard-content">
-        <div class="chat-interface">
-          <h3>💬 Conversation</h3>
-          <div class="chat-messages" id="chatMessages">
-            <div class="message assistant">
-              <strong>SolAI:</strong> Hello! I'm your intelligent real estate assistant. I can help you with client management, property analysis, scheduling, communications, and much more. What would you like to work on today?
+        <!-- Main Dashboard Grid -->
+        <div class="dashboard-grid">
+          <!-- Chat Interface -->
+          <div class="chat-interface">
+            <h3>💬 Conversation</h3>
+            <div class="chat-messages" id="chatMessages">
+              <div class="message assistant">
+                <strong>SolAI:</strong> Hello! I'm your intelligent real estate assistant. I can help you with client management, property analysis, scheduling, communications, and much more. What would you like to work on today?
+              </div>
+            </div>
+            
+            <div class="input-group">
+              <input 
+                type="text" 
+                class="chat-input" 
+                id="messageInput" 
+                placeholder="Type your message here..."
+                onkeypress="handleKeyPress(event)"
+              />
+              <button class="send-button" id="sendButton" onclick="sendMessage()">
+                Send
+              </button>
+            </div>
+            
+            <div class="loading" id="loading">
+              <p>🧠 Processing your request...</p>
             </div>
           </div>
-          
-          <div class="input-group">
-            <input 
-              type="text" 
-              class="chat-input" 
-              id="messageInput" 
-              placeholder="Type your message here..."
-              onkeypress="handleKeyPress(event)"
-            />
-            <button class="send-button" id="sendButton" onclick="sendMessage()">
-              Send
-            </button>
-          </div>
-          
-          <div class="loading" id="loading">
-            <p>🧠 Processing your request...</p>
+
+          <!-- Notifications Dashboard -->
+          <div class="notifications-section">
+            <div class="notifications-header">
+              <h3>🔔 Task Management & Reminders</h3>
+              <div class="notifications-controls">
+                <button class="filter-btn active" data-filter="all">All</button>
+                <button class="filter-btn" data-filter="urgent">Urgent</button>
+                <button class="filter-btn" data-filter="today">Today</button>
+                <button class="refresh-btn" onclick="refreshNotifications()">↻</button>
+                <button class="test-btn" onclick="createTestNotification()" style="background: #6f42c1; color: white; border-color: #6f42c1;" title="Create test notification">Test</button>
+              </div>
+            </div>
+            
+            <div class="notifications-container" id="notificationsContainer">
+              <div class="no-notifications" id="noNotifications">
+                <p>📋 No pending notifications</p>
+                <small>Tasks and reminders will appear here</small>
+              </div>
+              
+              <div class="notifications-loading" id="notificationsLoading">
+                <p>⏳ Loading notifications...</p>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -299,11 +547,18 @@
   <script>
     let sessionId = 'session_' + Date.now();
     let isProcessing = false;
+    let currentFilter = 'all';
+    let notifications = [];
+    let ws = null;
 
     // Initialize dashboard
     document.addEventListener('DOMContentLoaded', function() {
       checkSystemHealth();
+      loadNotifications();
+      setupNotificationFilters();
+      setupWebSocket();
       setInterval(checkSystemHealth, 30000); // Check every 30 seconds
+      setInterval(loadNotifications, 60000); // Refresh notifications every minute
     });
 
     async function checkSystemHealth() {
@@ -418,6 +673,384 @@
       
       chatMessages.appendChild(messageDiv);
       chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    // Notifications Management Functions
+    async function loadNotifications() {
+      const container = document.getElementById('notificationsContainer');
+      const loading = document.getElementById('notificationsLoading');
+      const noNotifications = document.getElementById('noNotifications');
+      
+      loading.style.display = 'block';
+      noNotifications.style.display = 'none';
+      
+      try {
+        const response = await fetch(`/api/notifications?sessionId=${encodeURIComponent(sessionId)}`);
+        const result = await response.json();
+        
+        if (result.success) {
+          notifications = result.notifications;
+          displayNotifications();
+        } else {
+          console.error('Failed to load notifications:', result.error);
+          showNoNotifications();
+        }
+      } catch (error) {
+        console.error('Error loading notifications:', error);
+        showNoNotifications();
+      } finally {
+        loading.style.display = 'none';
+      }
+    }
+
+    function displayNotifications() {
+      const container = document.getElementById('notificationsContainer');
+      const noNotifications = document.getElementById('noNotifications');
+      
+      // Filter notifications based on current filter
+      const filteredNotifications = filterNotifications(notifications);
+      
+      if (filteredNotifications.length === 0) {
+        showNoNotifications();
+        return;
+      }
+      
+      noNotifications.style.display = 'none';
+      
+      // Clear existing notifications (keep loading and no-notifications elements)
+      const existingItems = container.querySelectorAll('.notification-item');
+      existingItems.forEach(item => item.remove());
+      
+      // Create notification items
+      filteredNotifications.forEach(notification => {
+        const notificationElement = createNotificationElement(notification);
+        container.appendChild(notificationElement);
+      });
+    }
+
+    function filterNotifications(notificationsList) {
+      let filtered = [...notificationsList];
+      
+      switch (currentFilter) {
+        case 'urgent':
+          filtered = filtered.filter(n => n.priority === 'urgent');
+          break;
+        case 'today':
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const tomorrow = new Date(today);
+          tomorrow.setDate(tomorrow.getDate() + 1);
+          
+          filtered = filtered.filter(n => {
+            const notificationDate = new Date(n.scheduled_for || n.created_at);
+            return notificationDate >= today && notificationDate < tomorrow;
+          });
+          break;
+        case 'all':
+        default:
+          // Show all notifications
+          break;
+      }
+      
+      return filtered;
+    }
+
+    function createNotificationElement(notification) {
+      const div = document.createElement('div');
+      div.className = `notification-item ${notification.priority}`;
+      div.onclick = () => handleNotificationClick(notification);
+      
+      const timeText = formatNotificationTime(notification.scheduled_for || notification.created_at);
+      const typeDisplay = formatNotificationType(notification.type);
+      
+      div.innerHTML = `
+        <div class="notification-header">
+          <h4 class="notification-title">${escapeHtml(notification.title)}</h4>
+          <span class="notification-priority ${notification.priority}">${notification.priority}</span>
+        </div>
+        ${notification.message ? `<div class="notification-message">${escapeHtml(notification.message)}</div>` : ''}
+        <div class="notification-footer">
+          <div class="notification-time">
+            <span>⏰</span>
+            <span>${timeText}</span>
+          </div>
+          <span class="notification-type">${typeDisplay}</span>
+        </div>
+      `;
+      
+      return div;
+    }
+
+    function formatNotificationTime(dateString) {
+      const date = new Date(dateString);
+      const now = new Date();
+      const diffMs = date - now;
+      const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+      
+      if (diffDays === 0) {
+        return 'Today ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      } else if (diffDays === 1) {
+        return 'Tomorrow ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      } else if (diffDays === -1) {
+        return 'Yesterday ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      } else if (diffDays > 0 && diffDays <= 7) {
+        return `In ${diffDays} days`;
+      } else if (diffDays < 0 && diffDays >= -7) {
+        return `${Math.abs(diffDays)} days ago`;
+      } else {
+        return date.toLocaleDateString();
+      }
+    }
+
+    function formatNotificationType(type) {
+      const typeMap = {
+        'task_reminder': 'Task',
+        'calendar_event': 'Calendar',
+        'workflow_update': 'Workflow',
+        'system_alert': 'System'
+      };
+      return typeMap[type] || type.replace('_', ' ');
+    }
+
+    function showNoNotifications() {
+      document.getElementById('noNotifications').style.display = 'block';
+      const existingItems = document.getElementById('notificationsContainer').querySelectorAll('.notification-item');
+      existingItems.forEach(item => item.remove());
+    }
+
+    function setupNotificationFilters() {
+      const filterButtons = document.querySelectorAll('.filter-btn');
+      
+      filterButtons.forEach(button => {
+        button.addEventListener('click', () => {
+          // Update active state
+          filterButtons.forEach(btn => btn.classList.remove('active'));
+          button.classList.add('active');
+          
+          // Update current filter
+          currentFilter = button.dataset.filter;
+          
+          // Refresh display
+          displayNotifications();
+        });
+      });
+    }
+
+    async function handleNotificationClick(notification) {
+      try {
+        // Mark as read
+        if (!notification.is_read) {
+          const response = await fetch(`/api/notifications/${notification.id}/read`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ sessionId: sessionId })
+          });
+          
+          if (response.ok) {
+            notification.is_read = true;
+          }
+        }
+        
+        // Handle action URL if present
+        if (notification.action_url) {
+          window.open(notification.action_url, '_blank');
+        } else {
+          // Add notification content to chat if no action URL
+          addMessage(`Notification: ${notification.title}${notification.message ? ' - ' + notification.message : ''}`, 'assistant', true);
+        }
+      } catch (error) {
+        console.error('Error handling notification click:', error);
+      }
+    }
+
+    function refreshNotifications() {
+      loadNotifications();
+    }
+
+    // Test function to create sample notifications
+    async function createTestNotification() {
+      try {
+        const priorities = ['urgent', 'high', 'medium', 'low'];
+        const types = ['task_reminder', 'calendar_event', 'workflow_update'];
+        const titles = [
+          'Follow up with Johnson property listing',
+          'Client meeting at 2 PM today',
+          'Contract review due tomorrow',
+          'Property inspection scheduled',
+          'Marketing materials need approval'
+        ];
+        const messages = [
+          'Don\'t forget to call the client about the updated pricing',
+          'Prepare presentation materials for the meeting',
+          'Review all contract terms and conditions',
+          'Confirm inspection time with all parties',
+          'Marketing campaign needs final review before launch'
+        ];
+
+        const randomPriority = priorities[Math.floor(Math.random() * priorities.length)];
+        const randomType = types[Math.floor(Math.random() * types.length)];
+        const randomTitle = titles[Math.floor(Math.random() * titles.length)];
+        const randomMessage = messages[Math.floor(Math.random() * messages.length)];
+
+        const response = await fetch('/api/test/create-notification', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            sessionId: sessionId,
+            type: randomType,
+            title: randomTitle,
+            message: randomMessage,
+            priority: randomPriority
+          })
+        });
+
+        const result = await response.json();
+        
+        if (result.success) {
+          console.log('✅ Test notification created successfully');
+          // The real-time WebSocket will handle updating the display
+        } else {
+          console.error('❌ Failed to create test notification:', result.error);
+        }
+      } catch (error) {
+        console.error('Error creating test notification:', error);
+      }
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // WebSocket Functions
+    function setupWebSocket() {
+      try {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}`;
+        
+        ws = new WebSocket(wsUrl);
+        
+        ws.onopen = function() {
+          console.log('🔌 WebSocket connected');
+          
+          // Register this client with the session ID
+          ws.send(JSON.stringify({
+            type: 'register',
+            sessionId: sessionId
+          }));
+        };
+        
+        ws.onmessage = function(event) {
+          try {
+            const message = JSON.parse(event.data);
+            handleWebSocketMessage(message);
+          } catch (error) {
+            console.error('Error parsing WebSocket message:', error);
+          }
+        };
+        
+        ws.onclose = function() {
+          console.log('🔌 WebSocket disconnected');
+          // Attempt to reconnect after 5 seconds
+          setTimeout(setupWebSocket, 5000);
+        };
+        
+        ws.onerror = function(error) {
+          console.error('WebSocket error:', error);
+        };
+        
+      } catch (error) {
+        console.error('Failed to setup WebSocket:', error);
+      }
+    }
+
+    function handleWebSocketMessage(message) {
+      switch (message.type) {
+        case 'registration_success':
+          console.log('✅ Registered for real-time notifications');
+          break;
+          
+        case 'notification_update':
+          console.log('🔔 Real-time notification received');
+          handleRealTimeNotification(message.data);
+          break;
+          
+        case 'pong':
+          console.log('🏓 WebSocket ping-pong successful');
+          break;
+          
+        default:
+          console.log('Unknown WebSocket message type:', message.type);
+      }
+    }
+
+    function handleRealTimeNotification(notification) {
+      // Add the new notification to our local array
+      const existingIndex = notifications.findIndex(n => n.id === notification.id);
+      
+      if (existingIndex >= 0) {
+        // Update existing notification
+        notifications[existingIndex] = notification;
+      } else {
+        // Add new notification
+        notifications.unshift(notification); // Add to beginning for latest-first order
+      }
+      
+      // Refresh the display
+      displayNotifications();
+      
+      // Show a subtle visual indicator for new notifications
+      showNotificationAlert(notification);
+    }
+
+    function showNotificationAlert(notification) {
+      // Create a temporary alert for new notifications
+      const alert = document.createElement('div');
+      alert.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: linear-gradient(135deg, #007bff, #0056b3);
+        color: white;
+        padding: 15px 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+        z-index: 10000;
+        max-width: 300px;
+        animation: slideIn 0.3s ease-out;
+      `;
+      
+      alert.innerHTML = `
+        <div style="font-weight: bold; margin-bottom: 5px;">🔔 New Notification</div>
+        <div style="font-size: 14px;">${escapeHtml(notification.title)}</div>
+      `;
+      
+      // Add CSS animation
+      const style = document.createElement('style');
+      style.textContent = `
+        @keyframes slideIn {
+          from { transform: translateX(100%); opacity: 0; }
+          to { transform: translateX(0); opacity: 1; }
+        }
+      `;
+      document.head.appendChild(style);
+      
+      document.body.appendChild(alert);
+      
+      // Auto-remove after 4 seconds
+      setTimeout(() => {
+        alert.style.animation = 'slideIn 0.3s ease-out reverse';
+        setTimeout(() => {
+          if (alert.parentNode) {
+            alert.parentNode.removeChild(alert);
+          }
+        }, 300);
+      }, 4000);
     }
   </script>
 </body>

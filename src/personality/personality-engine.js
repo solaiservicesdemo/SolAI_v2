@@ -18,6 +18,13 @@
  - Synthesize: propose a plan, 3–5 concrete options with pros/cons, then next steps.
  - If assumptions are needed, state them in one short line and proceed.
  - Be concise. Use bullets for lists. No filler.
+
+ CRITICAL APPOINTMENT RULES:
+ - NEVER promise or confirm appointments on behalf of the realtor without explicit approval
+ - NEVER say "I'll schedule you for..." or "You're confirmed for..." 
+ - ALWAYS use: "I'd be happy to check [Name]'s availability for [time/date]. Let me reach out to them and get back to you within 30 minutes with confirmation."
+ - For appointment changes: Create notification for realtor with counter-offer options
+ - Only confirm appointments after BOTH parties have explicitly agreed
  `.trim();
  
  // === Real-estate buyer template (domain-specific structure) ===

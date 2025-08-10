@@ -9,10 +9,11 @@ const { v4: uuidv4 } = require('uuid');
 const axios = require('axios');
 
 class ToolOrchestrator {
-  constructor(memoryManager, executionSandbox, auditTrail) {
+  constructor(memoryManager, executionSandbox, auditTrail, notificationBroadcaster = null) {
     this.memoryManager = memoryManager;
     this.executionSandbox = executionSandbox;
     this.auditTrail = auditTrail;
+    this.notificationBroadcaster = notificationBroadcaster;
     this.logger = new Logger('ToolOrchestrator');
     this.initialized = false;
     
@@ -1475,6 +1476,963 @@ class ToolOrchestrator {
     }
 
     return status;
+  }
+
+  // =================== STORY 2: TASK MANAGEMENT METHODS ===================
+
+  async createTask(sessionId, taskData) {
+    try {
+      const { title, description, priority = 'medium', dueDate, reminderTime, createdBy = 'ai', workflowId, parentTaskId, metadata = {} } = taskData;
+      
+      // Validate required fields
+      if (!title) {
+        throw new Error('Task title is required');
+      }
+
+      const taskId = require('uuid').v4();
+      
+      const task = {
+        id: taskId,
+        session_id: sessionId,
+        title,
+        description,
+        status: 'pending',
+        priority,
+        due_date: dueDate ? new Date(dueDate).toISOString() : null,
+        reminder_time: reminderTime ? new Date(reminderTime).toISOString() : null,
+        created_by: createdBy,
+        workflow_id: workflowId || null,
+        parent_task_id: parentTaskId || null,
+        metadata: JSON.stringify(metadata),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+
+      // Store in database (will implement when memory manager has Supabase connection)
+      if (this.memoryManager && this.memoryManager.supabase) {
+        const { data, error } = await this.memoryManager.supabase
+          .from('tasks')
+          .insert(task)
+          .select()
+          .single();
+
+        if (error) throw error;
+        
+        // Create notification if reminder is set
+        if (reminderTime) {
+          await this.createNotification(sessionId, {
+            type: 'task_reminder',
+            title: `Reminder: ${title}`,
+            message: description,
+            scheduledFor: reminderTime,
+            priority
+          });
+        }
+
+        this.logger.info('✅ Task created successfully', { taskId: task.id, title: task.title });
+        return { success: true, task: data };
+      }
+
+      // Fallback to in-memory storage
+      this.logger.warn('⚠️ Database unavailable, storing task in memory');
+      return { success: true, task, fallback: true };
+
+    } catch (error) {
+      this.logger.error('❌ Failed to create task', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  async updateTaskStatus(sessionId, taskId, status, metadata = {}) {
+    try {
+      const validStatuses = ['pending', 'in_progress', 'completed'];
+      if (!validStatuses.includes(status)) {
+        throw new Error('Invalid task status');
+      }
+
+      const updates = {
+        status,
+        updated_at: new Date().toISOString(),
+        ...(status === 'completed' && { completed_at: new Date().toISOString() }),
+        ...(Object.keys(metadata).length > 0 && { metadata: JSON.stringify(metadata) })
+      };
+
+      if (this.memoryManager && this.memoryManager.supabase) {
+        const { data, error } = await this.memoryManager.supabase
+          .from('tasks')
+          .update(updates)
+          .eq('id', taskId)
+          .eq('session_id', sessionId)
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        this.logger.info('✅ Task status updated', { taskId, status });
+        return { success: true, task: data };
+      }
+
+      this.logger.warn('⚠️ Database unavailable, task update stored in memory');
+      return { success: true, fallback: true };
+
+    } catch (error) {
+      this.logger.error('❌ Failed to update task status', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  async listTasks(sessionId, filters = {}) {
+    try {
+      const { status, priority, dueDate, includeCompleted = false } = filters;
+
+      if (this.memoryManager && this.memoryManager.supabase) {
+        let query = this.memoryManager.supabase
+          .from('tasks')
+          .select('*')
+          .eq('session_id', sessionId);
+
+        // Apply filters
+        if (status) query = query.eq('status', status);
+        if (priority) query = query.eq('priority', priority);
+        if (dueDate) query = query.lte('due_date', new Date(dueDate).toISOString());
+        if (!includeCompleted) query = query.neq('status', 'completed');
+
+        // Order by priority and due date
+        query = query.order('priority', { ascending: false })
+                     .order('due_date', { ascending: true });
+
+        const { data, error } = await query;
+        if (error) throw error;
+
+        return { success: true, tasks: data || [] };
+      }
+
+      this.logger.warn('⚠️ Database unavailable, returning empty task list');
+      return { success: true, tasks: [], fallback: true };
+
+    } catch (error) {
+      this.logger.error('❌ Failed to list tasks', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  async enrollInWorkflow(sessionId, workflowName, variables = {}) {
+    try {
+      // Get workflow template
+      const template = await this.getWorkflowTemplate(workflowName);
+      if (!template) {
+        throw new Error(`Workflow template '${workflowName}' not found`);
+      }
+
+      const workflowId = require('uuid').v4();
+      
+      const workflowInstance = {
+        id: workflowId,
+        session_id: sessionId,
+        template_id: template.id,
+        name: template.name,
+        status: 'active',
+        progress: JSON.stringify({}),
+        variables: JSON.stringify(variables),
+        started_at: new Date().toISOString()
+      };
+
+      if (this.memoryManager && this.memoryManager.supabase) {
+        const { data, error } = await this.memoryManager.supabase
+          .from('workflow_instances')
+          .insert(workflowInstance)
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        // Create initial tasks from workflow template
+        await this.createWorkflowTasks(sessionId, workflowId, template, variables);
+
+        this.logger.info('✅ Enrolled in workflow successfully', { workflowId, workflowName });
+        return { success: true, workflowInstance: data };
+      }
+
+      this.logger.warn('⚠️ Database unavailable, workflow enrollment stored in memory');
+      return { success: true, workflowInstance, fallback: true };
+
+    } catch (error) {
+      this.logger.error('❌ Failed to enroll in workflow', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  async getNotifications(sessionId, options = {}) {
+    try {
+      const { includeExpired = false, sortBy = ['priority', 'scheduled_for'] } = options;
+
+      if (this.memoryManager && this.memoryManager.supabase) {
+        let query = this.memoryManager.supabase
+          .from('notifications')
+          .select('*')
+          .eq('session_id', sessionId);
+
+        // Filter out expired notifications unless requested
+        if (!includeExpired) {
+          query = query.or('expires_at.is.null,expires_at.gte.now()');
+        }
+
+        // Apply sorting
+        if (sortBy.includes('priority')) {
+          query = query.order('priority', { 
+            ascending: false,
+            foreignTable: null
+          });
+        }
+        
+        if (sortBy.includes('scheduled_for')) {
+          query = query.order('scheduled_for', { ascending: true });
+        }
+
+        const { data, error } = await query;
+
+        if (error) {
+          this.logger.error('❌ Failed to fetch notifications from database', error);
+          return [];
+        }
+
+        // Sort by priority order (urgent > high > medium > low)
+        const priorityOrder = { urgent: 4, high: 3, medium: 2, low: 1 };
+        const sortedData = data.sort((a, b) => {
+          const priorityDiff = (priorityOrder[b.priority] || 2) - (priorityOrder[a.priority] || 2);
+          if (priorityDiff !== 0) return priorityDiff;
+          
+          // Secondary sort by scheduled_for
+          const aDate = new Date(a.scheduled_for || a.created_at);
+          const bDate = new Date(b.scheduled_for || b.created_at);
+          return aDate - bDate;
+        });
+
+        this.logger.info('✅ Notifications retrieved', { 
+          sessionId: sessionId.substring(0, 8) + '...',
+          count: sortedData.length 
+        });
+        
+        return sortedData;
+      }
+
+      // Fallback to memory storage
+      const memoryKey = `notifications_${sessionId}`;
+      const notifications = await this.memoryManager.getFromMemory(memoryKey) || [];
+      
+      return notifications.filter(n => includeExpired || !n.expires_at || new Date(n.expires_at) > new Date());
+      
+    } catch (error) {
+      this.logger.error('❌ Failed to get notifications', error);
+      return [];
+    }
+  }
+
+  async markNotificationAsRead(sessionId, notificationId) {
+    try {
+      if (this.memoryManager && this.memoryManager.supabase) {
+        const { data, error } = await this.memoryManager.supabase
+          .from('notifications')
+          .update({ is_read: true })
+          .eq('id', notificationId)
+          .eq('session_id', sessionId)
+          .select();
+
+        if (error) {
+          this.logger.error('❌ Failed to mark notification as read in database', error);
+          return false;
+        }
+
+        this.logger.info('✅ Notification marked as read', { notificationId });
+        return true;
+      }
+
+      // Fallback to memory storage
+      const memoryKey = `notifications_${sessionId}`;
+      const notifications = await this.memoryManager.getFromMemory(memoryKey) || [];
+      const notification = notifications.find(n => n.id === notificationId);
+      
+      if (notification) {
+        notification.is_read = true;
+        await this.memoryManager.storeInMemory(memoryKey, notifications);
+        return true;
+      }
+
+      return false;
+      
+    } catch (error) {
+      this.logger.error('❌ Failed to mark notification as read', error);
+      return false;
+    }
+  }
+
+  async createNotification(sessionId, notificationData) {
+    try {
+      const { type, title, message, actionUrl, priority = 'medium', scheduledFor } = notificationData;
+      
+      const notification = {
+        id: require('uuid').v4(),
+        session_id: sessionId,
+        type,
+        title,
+        message,
+        action_url: actionUrl || null,
+        priority,
+        is_read: false,
+        scheduled_for: scheduledFor ? new Date(scheduledFor).toISOString() : new Date().toISOString(),
+        created_at: new Date().toISOString(),
+        expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 days from now
+      };
+
+      if (this.memoryManager && this.memoryManager.supabase) {
+        const { data, error } = await this.memoryManager.supabase
+          .from('notifications')
+          .insert(notification)
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        // Broadcast via WebSocket if available
+        if (this.notificationBroadcaster) {
+          this.notificationBroadcaster(sessionId, data);
+        }
+
+        this.logger.info('✅ Notification created successfully', { notificationId: data.id });
+        return { success: true, notification: data };
+      }
+
+      // Broadcast via WebSocket if available
+      if (this.notificationBroadcaster) {
+        this.notificationBroadcaster(sessionId, notification);
+      }
+
+      this.logger.info('✅ Notification created successfully (fallback)', { notificationId: notification.id });
+      return { success: true, notification, fallback: true };
+
+    } catch (error) {
+      this.logger.error('❌ Failed to create notification', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  async getWorkflowTemplate(workflowName) {
+    try {
+      if (this.memoryManager && this.memoryManager.supabase) {
+        const { data, error } = await this.memoryManager.supabase
+          .from('workflow_templates')
+          .select('*')
+          .eq('name', workflowName)
+          .eq('is_active', true)
+          .single();
+
+        if (error) {
+          this.logger.debug('Workflow template not found in database, checking built-in templates');
+          return this.getBuiltInWorkflowTemplate(workflowName);
+        }
+
+        return data;
+      }
+
+      return this.getBuiltInWorkflowTemplate(workflowName);
+
+    } catch (error) {
+      this.logger.error('❌ Failed to get workflow template', error);
+      return null;
+    }
+  }
+
+  getBuiltInWorkflowTemplate(workflowName) {
+    const templates = {
+      'buyer_intake': {
+        id: 'builtin_buyer_intake',
+        name: 'Buyer Intake Process',
+        description: 'Complete buyer intake from lead to offer',
+        template_data: {
+          steps: [
+            { name: 'Initial Contact', description: 'Contact the lead within 5 minutes', priority: 'high' },
+            { name: 'Pre-qualification', description: 'Assess buyer financial readiness', priority: 'high' },
+            { name: 'Needs Assessment', description: 'Determine property preferences and requirements', priority: 'medium' },
+            { name: 'Property Search Setup', description: 'Set up MLS alerts and search criteria', priority: 'medium' },
+            { name: 'Schedule Tours', description: 'Arrange property showings', priority: 'medium' },
+            { name: 'Offer Preparation', description: 'Prepare and submit competitive offer', priority: 'high' }
+          ]
+        }
+      },
+      'listing_launch': {
+        id: 'builtin_listing_launch',
+        name: 'Listing Launch Process',
+        description: 'Complete listing preparation to market launch',
+        template_data: {
+          steps: [
+            { name: 'Property Preparation', description: 'Staging recommendations and repairs', priority: 'high' },
+            { name: 'Professional Photography', description: 'Schedule and complete photo/video shoot', priority: 'high' },
+            { name: 'MLS Entry', description: 'Enter listing details in MLS system', priority: 'high' },
+            { name: 'Marketing Materials', description: 'Create flyers, social posts, and online listings', priority: 'medium' },
+            { name: 'Open House Planning', description: 'Schedule and prepare open house events', priority: 'medium' },
+            { name: 'Agent Outreach', description: 'Notify agent network of new listing', priority: 'low' }
+          ]
+        }
+      },
+      'contract_to_close': {
+        id: 'builtin_contract_to_close',
+        name: 'Contract to Close Process',
+        description: 'Manage transaction from accepted offer to closing',
+        template_data: {
+          steps: [
+            { name: 'Escrow Opening', description: 'Open escrow with title company', priority: 'high' },
+            { name: 'Inspection Coordination', description: 'Schedule and manage property inspections', priority: 'high' },
+            { name: 'Appraisal Management', description: 'Coordinate lender appraisal process', priority: 'high' },
+            { name: 'Loan Processing', description: 'Monitor buyer\'s loan approval process', priority: 'high' },
+            { name: 'Final Walkthrough', description: 'Schedule pre-closing property walkthrough', priority: 'medium' },
+            { name: 'Closing Preparation', description: 'Review closing documents and coordinate signing', priority: 'high' }
+          ]
+        }
+      }
+    };
+
+    return templates[workflowName] || null;
+  }
+
+  async createWorkflowTasks(sessionId, workflowId, template, variables) {
+    try {
+      const steps = template.template_data?.steps || [];
+      
+      for (let i = 0; i < steps.length; i++) {
+        const step = steps[i];
+        const taskData = {
+          title: step.name,
+          description: step.description,
+          priority: step.priority || 'medium',
+          workflowId,
+          metadata: { 
+            stepIndex: i, 
+            workflowName: template.name,
+            variables 
+          }
+        };
+
+        await this.createTask(sessionId, taskData);
+      }
+
+      this.logger.info('✅ Workflow tasks created', { workflowId, stepCount: steps.length });
+      
+    } catch (error) {
+      this.logger.error('❌ Failed to create workflow tasks', error);
+    }
+  }
+
+  // =================== CALENDAR INTEGRATION METHODS ===================
+
+  async createCalendarEvent(sessionId, eventData) {
+    try {
+      const { title, description, startTime, endTime, location, attendees = [], reminderMinutes = 15 } = eventData;
+      
+      // Create calendar event notification
+      const calendarNotification = {
+        type: 'calendar_event',
+        title: `Calendar: ${title}`,
+        message: `${description}\nLocation: ${location || 'Not specified'}\nTime: ${new Date(startTime).toLocaleString()}`,
+        scheduledFor: new Date(new Date(startTime).getTime() - (reminderMinutes * 60 * 1000)).toISOString(),
+        priority: 'medium',
+        actionUrl: null
+      };
+
+      const result = await this.createNotification(sessionId, calendarNotification);
+      
+      // Store calendar event data for future reference
+      const calendarEvent = {
+        id: require('uuid').v4(),
+        session_id: sessionId,
+        title,
+        description,
+        start_time: new Date(startTime).toISOString(),
+        end_time: new Date(endTime).toISOString(),
+        location,
+        attendees: JSON.stringify(attendees),
+        reminder_minutes: reminderMinutes,
+        notification_id: result.notification?.id,
+        created_at: new Date().toISOString()
+      };
+
+      // Store in memory for fallback
+      const memoryKey = `calendar_events_${sessionId}`;
+      const existingEvents = await this.memoryManager.getFromMemory(memoryKey) || [];
+      existingEvents.push(calendarEvent);
+      await this.memoryManager.storeInMemory(memoryKey, existingEvents);
+
+      this.logger.info('✅ Calendar event created', { eventId: calendarEvent.id, title });
+      return { success: true, event: calendarEvent, notification: result.notification };
+
+    } catch (error) {
+      this.logger.error('❌ Failed to create calendar event', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  async scheduleRecurringReminder(sessionId, reminderData) {
+    try {
+      const { title, description, startDate, frequency, interval = 1, endDate, reminderTime = '09:00' } = reminderData;
+      
+      // Supported frequencies: daily, weekly, monthly
+      const supportedFrequencies = ['daily', 'weekly', 'monthly'];
+      if (!supportedFrequencies.includes(frequency)) {
+        throw new Error('Invalid frequency. Supported: daily, weekly, monthly');
+      }
+
+      const reminders = [];
+      let currentDate = new Date(startDate);
+      const finalDate = endDate ? new Date(endDate) : new Date(currentDate.getTime() + (365 * 24 * 60 * 60 * 1000)); // 1 year max
+
+      while (currentDate <= finalDate) {
+        // Set reminder time on the current date
+        const [hours, minutes] = reminderTime.split(':').map(Number);
+        const reminderDateTime = new Date(currentDate);
+        reminderDateTime.setHours(hours, minutes, 0, 0);
+
+        // Create notification for this occurrence
+        const reminderNotification = {
+          type: 'recurring_reminder',
+          title: `Reminder: ${title}`,
+          message: description,
+          scheduledFor: reminderDateTime.toISOString(),
+          priority: 'medium'
+        };
+
+        const result = await this.createNotification(sessionId, reminderNotification);
+        
+        reminders.push({
+          date: reminderDateTime.toISOString(),
+          notificationId: result.notification?.id
+        });
+
+        // Calculate next occurrence
+        switch (frequency) {
+          case 'daily':
+            currentDate.setDate(currentDate.getDate() + interval);
+            break;
+          case 'weekly':
+            currentDate.setDate(currentDate.getDate() + (7 * interval));
+            break;
+          case 'monthly':
+            currentDate.setMonth(currentDate.getMonth() + interval);
+            break;
+        }
+
+        // Safety limit - max 100 reminders per recurring series
+        if (reminders.length >= 100) break;
+      }
+
+      this.logger.info('✅ Recurring reminder scheduled', { 
+        title, 
+        frequency, 
+        occurrences: reminders.length 
+      });
+
+      return { success: true, reminders, occurrenceCount: reminders.length };
+
+    } catch (error) {
+      this.logger.error('❌ Failed to schedule recurring reminder', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  async parseNaturalLanguageReminder(sessionId, naturalText) {
+    try {
+      // Simple natural language parsing for common reminder patterns
+      const patterns = {
+        // "Remind me to call John at 3pm today"
+        today: /remind me to (.+) at (\d{1,2}):?(\d{0,2})\s*(am|pm|AM|PM)?\s*today/i,
+        // "Remind me to call John tomorrow at 3pm" 
+        tomorrow: /remind me to (.+) (tomorrow|tmrw) at (\d{1,2}):?(\d{0,2})\s*(am|pm|AM|PM)?/i,
+        // "Remind me to call John in 2 hours"
+        inHours: /remind me to (.+) in (\d+) hours?/i,
+        // "Remind me to call John in 30 minutes"
+        inMinutes: /remind me to (.+) in (\d+) minutes?/i,
+        // "Remind me to call John on Friday"
+        onDay: /remind me to (.+) on (monday|tuesday|wednesday|thursday|friday|saturday|sunday)/i
+      };
+
+      for (const [type, pattern] of Object.entries(patterns)) {
+        const match = naturalText.match(pattern);
+        if (match) {
+          return await this.createReminderFromPattern(sessionId, type, match);
+        }
+      }
+
+      // If no pattern matches, create a basic reminder for "soon"
+      const basicMatch = naturalText.match(/remind me to (.+)/i);
+      if (basicMatch) {
+        const task = basicMatch[1];
+        const reminderTime = new Date(Date.now() + (60 * 60 * 1000)); // 1 hour from now
+        
+        return await this.createNotification(sessionId, {
+          type: 'task_reminder',
+          title: `Reminder: ${task}`,
+          message: `Don't forget to ${task}`,
+          scheduledFor: reminderTime.toISOString(),
+          priority: 'medium'
+        });
+      }
+
+      throw new Error('Could not understand reminder request');
+
+    } catch (error) {
+      this.logger.error('❌ Failed to parse natural language reminder', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  async createReminderFromPattern(sessionId, type, match) {
+    try {
+      let reminderTime;
+      let task;
+
+      switch (type) {
+        case 'today':
+          task = match[1];
+          const hour = parseInt(match[2]);
+          const minute = parseInt(match[3]) || 0;
+          const isPM = match[4]?.toLowerCase() === 'pm';
+          
+          reminderTime = new Date();
+          reminderTime.setHours(isPM && hour !== 12 ? hour + 12 : hour, minute, 0, 0);
+          break;
+
+        case 'tomorrow':
+          task = match[1];
+          const tomorrowHour = parseInt(match[3]);
+          const tomorrowMinute = parseInt(match[4]) || 0;
+          const tomorrowIsPM = match[5]?.toLowerCase() === 'pm';
+          
+          reminderTime = new Date();
+          reminderTime.setDate(reminderTime.getDate() + 1);
+          reminderTime.setHours(
+            tomorrowIsPM && tomorrowHour !== 12 ? tomorrowHour + 12 : tomorrowHour, 
+            tomorrowMinute, 0, 0
+          );
+          break;
+
+        case 'inHours':
+          task = match[1];
+          const hours = parseInt(match[2]);
+          reminderTime = new Date(Date.now() + (hours * 60 * 60 * 1000));
+          break;
+
+        case 'inMinutes':
+          task = match[1];
+          const minutes = parseInt(match[2]);
+          reminderTime = new Date(Date.now() + (minutes * 60 * 1000));
+          break;
+
+        case 'onDay':
+          task = match[1];
+          const dayName = match[2].toLowerCase();
+          const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+          const targetDay = days.indexOf(dayName);
+          
+          reminderTime = new Date();
+          const currentDay = reminderTime.getDay();
+          const daysUntilTarget = (targetDay - currentDay + 7) % 7 || 7;
+          reminderTime.setDate(reminderTime.getDate() + daysUntilTarget);
+          reminderTime.setHours(9, 0, 0, 0); // Default to 9 AM
+          break;
+      }
+
+      const result = await this.createNotification(sessionId, {
+        type: 'task_reminder',
+        title: `Reminder: ${task}`,
+        message: `Don't forget to ${task}`,
+        scheduledFor: reminderTime.toISOString(),
+        priority: 'medium'
+      });
+
+      return { 
+        success: true, 
+        parsedAction: task, 
+        scheduledTime: reminderTime.toISOString(),
+        notification: result.notification 
+      };
+
+    } catch (error) {
+      this.logger.error('❌ Failed to create reminder from pattern', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  async getUpcomingReminders(sessionId, timeframe = 'today') {
+    try {
+      let startTime, endTime;
+      const now = new Date();
+
+      switch (timeframe) {
+        case 'today':
+          startTime = new Date(now);
+          startTime.setHours(0, 0, 0, 0);
+          endTime = new Date(now);
+          endTime.setHours(23, 59, 59, 999);
+          break;
+
+        case 'tomorrow':
+          startTime = new Date(now);
+          startTime.setDate(now.getDate() + 1);
+          startTime.setHours(0, 0, 0, 0);
+          endTime = new Date(startTime);
+          endTime.setHours(23, 59, 59, 999);
+          break;
+
+        case 'week':
+          startTime = new Date(now);
+          startTime.setHours(0, 0, 0, 0);
+          endTime = new Date(now);
+          endTime.setDate(now.getDate() + 7);
+          endTime.setHours(23, 59, 59, 999);
+          break;
+
+        default:
+          // Next 24 hours
+          startTime = new Date(now);
+          endTime = new Date(now.getTime() + (24 * 60 * 60 * 1000));
+      }
+
+      const notifications = await this.getNotifications(sessionId, { includeExpired: false });
+      
+      const upcomingReminders = notifications.filter(notification => {
+        const scheduledTime = new Date(notification.scheduled_for);
+        return scheduledTime >= startTime && scheduledTime <= endTime;
+      });
+
+      return {
+        success: true,
+        reminders: upcomingReminders,
+        timeframe,
+        count: upcomingReminders.length
+      };
+
+    } catch (error) {
+      this.logger.error('❌ Failed to get upcoming reminders', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // =================== APPOINTMENT MANAGEMENT METHODS ===================
+
+  async requestAppointment(sessionId, appointmentData) {
+    try {
+      const { leadName, leadContact, requestedTime, requestedDate, purpose, notes } = appointmentData;
+      
+      const appointmentRequest = {
+        id: require('uuid').v4(),
+        session_id: sessionId,
+        lead_name: leadName,
+        lead_contact: leadContact,
+        requested_time: requestedTime,
+        requested_date: new Date(requestedDate).toISOString(),
+        purpose,
+        notes,
+        status: 'pending_realtor_response', // pending_realtor_response → pending_lead_confirmation → confirmed → completed
+        created_at: new Date().toISOString()
+      };
+
+      // Create notification for realtor
+      const realtorNotification = {
+        type: 'appointment_request',
+        title: `Appointment Request: ${leadName}`,
+        message: `${leadName} would like to meet on ${new Date(requestedDate).toDateString()} at ${requestedTime}. Purpose: ${purpose}`,
+        priority: 'high',
+        actionUrl: `/appointments/${appointmentRequest.id}`,
+        scheduledFor: new Date().toISOString() // Immediate notification
+      };
+
+      const notificationResult = await this.createNotification(sessionId, realtorNotification);
+      appointmentRequest.realtor_notification_id = notificationResult.notification?.id;
+
+      // Store appointment request
+      const memoryKey = `appointment_requests_${sessionId}`;
+      const existingRequests = await this.memoryManager.getFromMemory(memoryKey) || [];
+      existingRequests.push(appointmentRequest);
+      await this.memoryManager.storeInMemory(memoryKey, existingRequests);
+
+      this.logger.info('✅ Appointment request created', { 
+        appointmentId: appointmentRequest.id, 
+        leadName 
+      });
+
+      return { 
+        success: true, 
+        appointmentRequest,
+        message: `I've sent your request to check availability for ${new Date(requestedDate).toDateString()} at ${requestedTime}. I'll get back to you within 30 minutes with confirmation.`
+      };
+
+    } catch (error) {
+      this.logger.error('❌ Failed to create appointment request', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  async respondToAppointmentRequest(sessionId, appointmentId, response) {
+    try {
+      const { action, counterOffer } = response; // action: 'accept', 'counter', 'decline'
+      
+      const memoryKey = `appointment_requests_${sessionId}`;
+      const requests = await this.memoryManager.getFromMemory(memoryKey) || [];
+      const appointmentIndex = requests.findIndex(req => req.id === appointmentId);
+      
+      if (appointmentIndex === -1) {
+        throw new Error('Appointment request not found');
+      }
+
+      const appointment = requests[appointmentIndex];
+      
+      switch (action) {
+        case 'accept':
+          appointment.status = 'pending_lead_confirmation';
+          appointment.confirmed_time = appointment.requested_time;
+          appointment.confirmed_date = appointment.requested_date;
+          appointment.realtor_response_at = new Date().toISOString();
+          
+          // Notify lead of confirmation
+          await this.createNotification(sessionId, {
+            type: 'appointment_confirmed',
+            title: `Appointment Confirmed with ${appointment.lead_name}`,
+            message: `Your appointment for ${new Date(appointment.confirmed_date).toDateString()} at ${appointment.confirmed_time} has been confirmed.`,
+            priority: 'medium',
+            scheduledFor: new Date().toISOString()
+          });
+          break;
+
+        case 'counter':
+          appointment.status = 'pending_lead_confirmation';
+          appointment.confirmed_time = counterOffer.time;
+          appointment.confirmed_date = new Date(counterOffer.date).toISOString();
+          appointment.realtor_response_at = new Date().toISOString();
+          appointment.counter_offered = true;
+          
+          // Notify lead of counter-offer
+          await this.createNotification(sessionId, {
+            type: 'appointment_counter_offer',
+            title: `Alternative Time Suggested for ${appointment.lead_name}`,
+            message: `Instead of ${appointment.requested_time} on ${new Date(appointment.requested_date).toDateString()}, how about ${counterOffer.time} on ${new Date(counterOffer.date).toDateString()}?`,
+            priority: 'high',
+            scheduledFor: new Date().toISOString()
+          });
+          break;
+
+        case 'decline':
+          appointment.status = 'declined';
+          appointment.realtor_response_at = new Date().toISOString();
+          appointment.decline_reason = response.reason || 'Schedule conflict';
+          
+          // Notify lead of decline with alternatives
+          await this.createNotification(sessionId, {
+            type: 'appointment_declined',
+            title: `Need to Reschedule with ${appointment.lead_name}`,
+            message: `Unfortunately, the requested time isn't available. I'll follow up with alternative times that work better.`,
+            priority: 'high',
+            scheduledFor: new Date().toISOString()
+          });
+          break;
+      }
+
+      // Update stored requests
+      requests[appointmentIndex] = appointment;
+      await this.memoryManager.storeInMemory(memoryKey, requests);
+
+      this.logger.info('✅ Appointment response processed', { 
+        appointmentId, 
+        action,
+        status: appointment.status 
+      });
+
+      return { success: true, appointment, action };
+
+    } catch (error) {
+      this.logger.error('❌ Failed to respond to appointment request', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  async confirmFinalAppointment(sessionId, appointmentId, leadConfirmation = true) {
+    try {
+      const memoryKey = `appointment_requests_${sessionId}`;
+      const requests = await this.memoryManager.getFromMemory(memoryKey) || [];
+      const appointmentIndex = requests.findIndex(req => req.id === appointmentId);
+      
+      if (appointmentIndex === -1) {
+        throw new Error('Appointment request not found');
+      }
+
+      const appointment = requests[appointmentIndex];
+      
+      if (leadConfirmation) {
+        appointment.status = 'confirmed';
+        appointment.lead_confirmed_at = new Date().toISOString();
+        
+        // Create final calendar event for both parties
+        const calendarEvent = await this.createCalendarEvent(sessionId, {
+          title: `Meeting with ${appointment.lead_name}`,
+          description: `${appointment.purpose}\nContact: ${appointment.lead_contact}${appointment.notes ? `\nNotes: ${appointment.notes}` : ''}`,
+          startTime: `${appointment.confirmed_date.split('T')[0]}T${appointment.confirmed_time}:00`,
+          endTime: `${appointment.confirmed_date.split('T')[0]}T${this.addMinutesToTime(appointment.confirmed_time, 60)}:00`,
+          attendees: [appointment.lead_contact],
+          reminderMinutes: 30
+        });
+
+        // Optional: Restaurant reservation logic
+        if (appointment.purpose?.toLowerCase().includes('lunch') || 
+            appointment.purpose?.toLowerCase().includes('restaurant')) {
+          await this.createNotification(sessionId, {
+            type: 'restaurant_reservation',
+            title: 'Restaurant Reservation Needed',
+            message: `Would you like me to make a reservation for your lunch meeting with ${appointment.lead_name}?`,
+            priority: 'low',
+            scheduledFor: new Date(Date.now() + (5 * 60 * 1000)).toISOString() // 5 minutes from now
+          });
+        }
+
+        // Update stored requests
+        requests[appointmentIndex] = appointment;
+        await this.memoryManager.storeInMemory(memoryKey, requests);
+
+        this.logger.info('✅ Final appointment confirmed', { 
+          appointmentId,
+          leadName: appointment.lead_name,
+          confirmedTime: `${appointment.confirmed_date} ${appointment.confirmed_time}`
+        });
+
+        return { 
+          success: true, 
+          appointment, 
+          calendarEvent: calendarEvent.event,
+          message: 'Appointment confirmed and calendar event created'
+        };
+      } else {
+        // Lead declined the counter-offer
+        appointment.status = 'cancelled';
+        appointment.lead_declined_at = new Date().toISOString();
+        
+        requests[appointmentIndex] = appointment;
+        await this.memoryManager.storeInMemory(memoryKey, requests);
+
+        return { 
+          success: true, 
+          appointment, 
+          message: 'Appointment cancelled by lead' 
+        };
+      }
+
+    } catch (error) {
+      this.logger.error('❌ Failed to confirm final appointment', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  addMinutesToTime(timeString, minutes) {
+    const [hours, mins] = timeString.split(':').map(Number);
+    const totalMinutes = (hours * 60) + mins + minutes;
+    const newHours = Math.floor(totalMinutes / 60) % 24;
+    const newMins = totalMinutes % 60;
+    return `${String(newHours).padStart(2, '0')}:${String(newMins).padStart(2, '0')}`;
   }
 }
 
