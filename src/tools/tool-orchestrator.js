@@ -222,12 +222,13 @@ class ToolOrchestrator {
       },
 
       failoverStrategies: {
-        'gmail': ['claude_flow_email_templates', 'twilio'],
-        'twilio': ['gmail', 'claude_flow_slack'],
-        'crm': ['claude_flow_database_connector', 'local_storage'],
-        'market_analyzer': ['claude_flow_visualization_engine', 'cached_analysis'],
-        'document_processor': ['claude_flow_text_processor', 'manual_processing']
+        gmail: ['twilio'],
+        twilio: ['gmail', 'slack'],
+        crm: ['database_connector'],
+        market_analyzer: ['visualization_engine'],
+        document_processor: ['text_processor']
       },
+      
 
       circuitBreaker: {
         enabled: true,
@@ -359,69 +360,73 @@ class ToolOrchestrator {
     });
   }
 
-  async coordinateTools(request) {
+  async coordinateTools(request = {}) {
     const coordinationId = uuidv4();
     const timer = this.logger.startTimer(`tool-coordination-${coordinationId}`);
-    
+  
+    // Safe locals so we never reference an unbound identifier
+    const intent = request?.intent;
+    const ctx = request?.context || {};
+    const priority = request?.priority ?? 'medium';
+    const parameters = request?.parameters;
+  
     try {
-      const { intent, context, priority = 'medium', parameters } = request;
-      
       this.logger.info('🔧 Starting enhanced tool coordination', {
         coordinationId,
-        intent, 
+        intent,
         priority,
-        contextKeys: Object.keys(context || {}),
+        contextKeys: Object.keys(ctx),
         toolsRequested: request.tools?.length || 'auto-detect'
       });
-
+  
       // METRICS: Track coordination attempt
       this.coordinationMetrics.totalCoordinations++;
-
+  
       // PERFORMANCE: Check rate limiting
       const rateLimitCheck = this.checkRateLimit();
       if (!rateLimitCheck.allowed) {
         throw new Error(`Rate limit exceeded: ${rateLimitCheck.reason}`);
       }
-
+  
       // STEP 1: Analyze intent and select optimal tools
-      const toolSelection = await this.selectTools(intent, context, parameters);
-      
+      const toolSelection = await this.selectTools(intent, ctx, parameters);
+  
       // STEP 2: Determine execution strategy
       const strategy = this.determineExecutionStrategy(toolSelection, priority);
-      
+  
       // STEP 3: Security validation through sandbox
       const securityValidation = await this.validateCoordinationSecurity(
-        toolSelection, strategy, context, coordinationId
+        toolSelection, strategy, ctx, coordinationId
       );
       if (!securityValidation.allowed) {
         throw new Error(`Security validation failed: ${securityValidation.reason}`);
       }
-
+  
       // STEP 4: Execute tools with enterprise monitoring
       const results = await this.executeToolStrategyEnhanced(
-        toolSelection, strategy, context, coordinationId
+        toolSelection, strategy, ctx, coordinationId
       );
-      
+  
       // STEP 5: Aggregate and format results
       const aggregatedResults = this.aggregateResults(results, intent);
-      
+  
       // STEP 6: Update performance metrics
       this.updateCoordinationMetrics(toolSelection, results, timer.duration);
-
+  
       // AUDIT: Log successful coordination
       await this.auditTrail.logExecutionComplete({
         coordinationId,
-        sessionId: context?.sessionId,
+        sessionId: ctx?.sessionId,
         success: true,
         toolsUsed: toolSelection.selected.map(t => t.name),
         processingTime: timer.duration,
         strategy: strategy.type,
         resultSummary: aggregatedResults.summary
       });
-
+  
       timer.end('Enhanced tool coordination completed');
       this.coordinationMetrics.successfulCoordinations++;
-      
+  
       return {
         success: true,
         coordinationId,
@@ -441,29 +446,30 @@ class ToolOrchestrator {
           coordinationId
         }
       };
-      
+  
     } catch (error) {
       timer.end('Enhanced tool coordination failed');
       this.logger.error('❌ Enhanced tool coordination failed', error, { coordinationId });
-
+  
       // AUDIT: Log failed coordination
       await this.auditTrail.logExecutionComplete({
         coordinationId,
-        sessionId: context?.sessionId,
+        sessionId: request?.context?.sessionId,
         success: false,
         error: error.message,
         processingTime: timer.duration
       });
-      
+  
       return {
         success: false,
         coordinationId,
         error: error.message,
-        fallback: await this.generateFallbackResponse(request),
-        recovery: await this.suggestRecoveryActions(request, error)
+        fallback: await this.generateFallbackResponse(request || {}),
+        recovery: await this.suggestRecoveryActions(request || {}, error)
       };
     }
   }
+  
 
   async selectTools(intent, context, parameters = {}) {
     // OPTIMIZATION: Check if this intent actually needs tools BEFORE selecting any
@@ -574,24 +580,19 @@ class ToolOrchestrator {
   }
 
   selectMinimalTools(intent, context) {
-    // Return minimal set of tools based on intent
     const minimalToolMappings = {
-      'task_request': [{ name: 'task_manager', registry: 'super_tools' }],
-      'appointment_request': [{ name: 'calendar_integration', registry: 'super_tools' }],
-      'task_reminder': [{ name: 'reminder_system', registry: 'super_tools' }],
-      'market_analysis': [{ name: 'market_data', registry: 'super_tools' }],
-      'communication': [{ name: 'communication_hub', registry: 'super_tools' }],
-      'property_search': [{ name: 'property_search', registry: 'super_tools' }]
+      task_request: [{ name: 'task_manager', registry: 'claude_flow_tools' }],
+      appointment_request: [{ name: 'calendar', registry: 'super_tools' }],
+      task_reminder: [{ name: 'task_manager', registry: 'claude_flow_tools' }],
+      market_analysis: [{ name: 'market_analyzer', registry: 'super_tools' }],
+      communication: [{ name: 'gmail', registry: 'super_tools' }],
+      property_search: [{ name: 'crm', registry: 'super_tools' }] // or your real search tool if you add one
     };
-
-    const tools = minimalToolMappings[intent] || [];
-    
-    // Only return tools that actually exist in our registry
-    return tools.filter(tool => {
-      const registry = this.toolRegistry[tool.registry];
-      return registry && registry[tool.name];
-    });
+  
+    const wanted = minimalToolMappings[intent] || [];
+    return wanted.filter(t => this.toolRegistry[t.registry] && this.toolRegistry[t.registry][t.name]);
   }
+  
 
   mapIntentToWorkflow(intent) {
     const intentMappings = {
@@ -964,29 +965,55 @@ class ToolOrchestrator {
     return { allowed: true };
   }
 
-  async validateCoordinationSecurity(toolSelection, strategy, context, coordinationId) {
+  async validateCoordinationSecurity(toolSelection, strategy, ctx, coordinationId) {
+    // If no sandbox, just allow.
     if (!this.executionSandbox) {
       return { allowed: true, securityLevel: 'basic' };
     }
-
+  
     try {
-      const securityValidation = await this.executionSandbox.validateExecution({
-        tool: 'tool_orchestrator',
-        action: 'coordinate_tools',
-        parameters: {
-          toolCount: toolSelection.selected.length,
-          tools: toolSelection.selected.map(t => t.name),
-          strategy: strategy.type
-        },
-        context
-      }, coordinationId);
-
-      return securityValidation;
-    } catch (error) {
-      this.logger.error('❌ Security validation failed', error);
+      const selected = toolSelection?.selected || [];
+      if (selected.length === 0) {
+        // Nothing to execute = nothing to validate.
+        return { allowed: true, securityLevel: 'basic' };
+      }
+  
+      // Validate each concrete tool that will run.
+      const results = [];
+      for (const t of selected) {
+        const res = await this.executionSandbox.validateExecution({
+          tool: t.name,                                   // <-- real tool (e.g., 'gmail', 'crm', etc.)
+          action: ctx?.action || 'execute',
+          parameters: ctx?.parameters || {},
+          context: {
+            ...ctx,
+            coordinationId,
+            strategy: strategy?.type,
+            registry: t.registry,
+            priority: ctx?.priority ?? 'medium'
+          }
+        }, coordinationId);
+  
+        results.push({ tool: t.name, ...res });
+        if (!res.allowed) {
+          return { allowed: false, reason: `Tool '${t.name}' not allowed`, securityLevel: res.securityLevel || 'blocked' };
+        }
+      }
+  
+      // If all tools were allowed, return the strongest reported security level.
+      const securityLevel =
+        results.map(r => r.securityLevel).find(l => l === 'strict') ||
+        results.map(r => r.securityLevel).find(l => l === 'enforced') ||
+        results[0]?.securityLevel || 'standard';
+  
+      return { allowed: true, securityLevel };
+  
+    } catch (err) {
+      this.logger.error('❌ Security validation failed', err);
       return { allowed: false, reason: 'Security validation error' };
     }
   }
+  
 
   async executeToolStrategyEnhanced(toolSelection, strategy, context, coordinationId) {
     const results = [];
