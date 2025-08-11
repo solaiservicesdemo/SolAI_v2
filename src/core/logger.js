@@ -165,6 +165,49 @@ class Logger {
       timestamp: new Date().toISOString()
     });
   }
+
+  // Admin monitoring specific logging
+  apiOptimization(intent, toolsCalled, duration, optimized = true) {
+    this.info(`API optimization tracking`, {
+      component: `${this.component}:APIOptimization`,
+      intent,
+      toolsCalled,
+      duration: `${duration}ms`,
+      optimized,
+      timestamp: new Date().toISOString(),
+      category: optimized ? 'optimized' : (toolsCalled === 0 ? 'conversational' : 'normal')
+    });
+  }
+
+  businessLogic(eventType, data = {}) {
+    this.info(`Business logic event: ${eventType}`, {
+      component: `${this.component}:BusinessLogic`,
+      eventType,
+      ...data,
+      timestamp: new Date().toISOString()
+    });
+  }
+
+  appointmentSafety(sessionId, action, details = {}) {
+    this.warn(`Appointment safety check: ${action}`, {
+      component: `${this.component}:AppointmentSafety`,
+      sessionId: sessionId?.substring(0, 8) + '...',
+      action,
+      ...details,
+      timestamp: new Date().toISOString()
+    });
+  }
+
+  smartAssumption(sessionId, context, assumptions = []) {
+    this.info(`Smart assumptions applied`, {
+      component: `${this.component}:SmartAssumptions`,
+      sessionId: sessionId?.substring(0, 8) + '...',
+      context,
+      assumptionsCount: assumptions.length,
+      assumptions: assumptions.slice(0, 3), // Limit to first 3 for brevity
+      timestamp: new Date().toISOString()
+    });
+  }
 }
 
 module.exports = Logger;

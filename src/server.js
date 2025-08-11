@@ -17,6 +17,7 @@ const MemoryManager = require('./memory/memory-manager');
 const PersonalityEngine = require('./personality/personality-engine');
 const ToolOrchestrator = require('./tools/tool-orchestrator');
 const HealthMonitor = require('./monitoring/health-monitor');
+const adminRoutes = require('./api/admin-routes');
 
 class SolAIServer {
   constructor() {
@@ -381,14 +382,26 @@ class SolAIServer {
       });
     }
 
+    // Admin monitoring routes
+    this.app.use('/api/admin', adminRoutes);
+
+    // Admin dashboard route
+    this.app.get('/admin', (req, res) => {
+      res.sendFile(path.join(__dirname, '../public/admin.html'));
+    });
+
     // Serve the dashboard
     this.app.get('/', (req, res) => {
       res.sendFile(path.join(__dirname, '../public/index.html'));
     });
 
-    // Catch-all for client-side routing
+    // Catch-all for client-side routing (but exclude admin)
     this.app.get('*', (req, res) => {
-      res.sendFile(path.join(__dirname, '../public/index.html'));
+      if (req.path.startsWith('/admin')) {
+        res.sendFile(path.join(__dirname, '../public/admin.html'));
+      } else {
+        res.sendFile(path.join(__dirname, '../public/index.html'));
+      }
     });
   }
 

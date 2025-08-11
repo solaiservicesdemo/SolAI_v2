@@ -464,15 +464,24 @@ class ToolOrchestrator {
   }
 
   async selectTools(intent, context, parameters = {}) {
-    // Intelligent tool selection based on intent and context
+    // OPTIMIZATION: Check if this intent actually needs tools BEFORE selecting any
+    const needsTools = this.intentRequiresTools(intent, context);
+    
     const selection = {
       selected: [],
       reasoning: [],
       fallbacks: []
     };
 
-    // Check for predefined workflows
-    const workflow = this.coordinationRules[intent] || this.coordinationRules[this.mapIntentToWorkflow(intent)];
+    if (!needsTools) {
+      // No tools needed for this conversation - save API calls
+      selection.reasoning.push(`Intent '${intent}' is conversational only - no tools required`);
+      this.logger.debug('🚀 Skipping tool selection - conversational intent', { intent });
+      return selection;
+    }
+
+    // Check for predefined workflows (only if tools are needed)
+    const workflow = this.coordinationRules[intent];
     
     if (workflow) {
       // Use predefined workflow
@@ -481,21 +490,105 @@ class ToolOrchestrator {
         ...this.getToolsByNames(workflow.supporting_tools, 'claude_flow_tools')
       ];
       selection.reasoning.push(`Using predefined workflow for ${intent}`);
-    } else {
-      // Dynamic tool selection
+    } else if (this.shouldUseDynamicSelection(intent, context)) {
+      // Dynamic tool selection (only for complex scenarios)
       selection.selected = await this.performDynamicSelection(intent, context);
       selection.reasoning.push('Dynamic tool selection based on context analysis');
+    } else {
+      // Use minimal tool selection
+      selection.selected = this.selectMinimalTools(intent, context);
+      selection.reasoning.push('Minimal tool selection for efficiency');
     }
 
-    // Add fallback tools
-    selection.fallbacks = this.selectFallbackTools(selection.selected);
+    // Add fallback tools only if primary tools exist
+    if (selection.selected.length > 0) {
+      selection.fallbacks = this.selectFallbackTools(selection.selected);
+    }
     
     this.logger.debug('Tool selection completed', {
       selectedCount: selection.selected.length,
-      fallbackCount: selection.fallbacks.length
+      fallbackCount: selection.fallbacks.length,
+      intent,
+      toolsNeeded: needsTools
     });
 
     return selection;
+  }
+
+  intentRequiresTools(intent, context) {
+    // CRITICAL: Only these intents actually need tool coordination
+    const toolRequiringIntents = [
+      'task_request',
+      'appointment_request', 
+      'task_reminder',
+      'market_analysis',
+      'communication',
+      'document_request',
+      'property_search', // Only if specific data lookup needed
+      'workflow_execution'
+    ];
+
+    // Simple conversational intents that DON'T need tools
+    const conversationalIntents = [
+      'greeting',
+      'appreciation',
+      'question', // Most questions are answerable without tools
+      'memory_reference',
+      'general_conversation',
+      'informational_response'
+    ];
+
+    if (toolRequiringIntents.includes(intent)) {
+      return true;
+    }
+
+    if (conversationalIntents.includes(intent)) {
+      // Additional context check for edge cases
+      const message = context?.currentUserMessage?.toLowerCase() || '';
+      
+      // Even conversational intents might need tools if they mention specific actions
+      if (message.includes('schedule') || 
+          message.includes('remind') || 
+          message.includes('book') ||
+          message.includes('create') ||
+          message.includes('send')) {
+        return true;
+      }
+      
+      return false; // Pure conversation
+    }
+
+    // Default to requiring tools for unknown intents (safer)
+    return true;
+  }
+
+  shouldUseDynamicSelection(intent, context) {
+    // Only use expensive dynamic selection for complex scenarios
+    const complexIntents = ['general_assistance', 'intelligent_assistance'];
+    const hasComplexContext = context?.conversationHistory?.length > 3;
+    const hasMultipleRequirements = (context?.currentUserMessage?.split(' ')?.length || 0) > 10;
+    
+    return complexIntents.includes(intent) && (hasComplexContext || hasMultipleRequirements);
+  }
+
+  selectMinimalTools(intent, context) {
+    // Return minimal set of tools based on intent
+    const minimalToolMappings = {
+      'task_request': [{ name: 'task_manager', registry: 'super_tools' }],
+      'appointment_request': [{ name: 'calendar_integration', registry: 'super_tools' }],
+      'task_reminder': [{ name: 'reminder_system', registry: 'super_tools' }],
+      'market_analysis': [{ name: 'market_data', registry: 'super_tools' }],
+      'communication': [{ name: 'communication_hub', registry: 'super_tools' }],
+      'property_search': [{ name: 'property_search', registry: 'super_tools' }]
+    };
+
+    const tools = minimalToolMappings[intent] || [];
+    
+    // Only return tools that actually exist in our registry
+    return tools.filter(tool => {
+      const registry = this.toolRegistry[tool.registry];
+      return registry && registry[tool.name];
+    });
   }
 
   mapIntentToWorkflow(intent) {
@@ -1768,14 +1861,38 @@ class ToolOrchestrator {
 
   async createNotification(sessionId, notificationData) {
     try {
+      // VALIDATION: Critical input validation
+      if (!sessionId || typeof sessionId !== 'string' || sessionId.trim().length === 0) {
+        throw new Error('Valid session ID is required');
+      }
+      
+      if (!notificationData || typeof notificationData !== 'object') {
+        throw new Error('Notification data is required');
+      }
+      
       const { type, title, message, actionUrl, priority = 'medium', scheduledFor } = notificationData;
+      
+      // VALIDATION: Required fields
+      if (!type || typeof type !== 'string') {
+        throw new Error('Notification type is required');
+      }
+      
+      if (!title || typeof title !== 'string' || title.trim().length === 0) {
+        throw new Error('Notification title is required');
+      }
+      
+      // VALIDATION: Priority must be valid
+      const validPriorities = ['low', 'medium', 'high', 'urgent'];
+      if (!validPriorities.includes(priority)) {
+        throw new Error('Invalid priority. Must be: low, medium, high, or urgent');
+      }
       
       const notification = {
         id: require('uuid').v4(),
-        session_id: sessionId,
-        type,
-        title,
-        message,
+        session_id: sessionId.trim(),
+        type: type.trim(),
+        title: title.trim(),
+        message: message || '',
         action_url: actionUrl || null,
         priority,
         is_read: false,
