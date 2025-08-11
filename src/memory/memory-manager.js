@@ -62,7 +62,10 @@ class MemoryManager {
       });
   
       // Attach error listener BEFORE connect to avoid unhandled event spam
-      this.redis.on('error', (e) => this.logger.warn('Redis client error', e?.message || e));
+      this.redis.on('error', (e) => {
+        this.logger.warn('Redis client error', e?.message || e);
+        // Don't crash on Redis errors - we have fallback
+      });
   
       await this.redis.connect();
       await this.redis.ping();

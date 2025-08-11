@@ -2,6 +2,33 @@
 
 **Complete testing validation before moving to Story 2 development**
 
+## 🚨 CRITICAL TESTING NOTICE - READ FIRST
+
+### ⚠️ TEMPORARY LIMITATION: NO PERSISTENT MEMORY
+**Redis is temporarily disabled** - the system uses in-memory storage during testing.
+
+### ❌ WHAT WON'T WORK DURING TESTING:
+- **Memory across server restarts** - If you restart the server, all conversation history is lost
+- **Multi-session persistence** - Previous conversations won't be remembered after restart
+- **Cross-instance memory sharing** - Each server instance has isolated memory
+
+### ✅ WHAT WORKS PERFECTLY (Full 93-Tool Enterprise System):
+- **All conversation features** within the same session (don't restart server during testing)
+- **All 6 super-tools**: Gmail, Twilio, Calendar, CRM, Documents, Market Analysis
+- **All 87 Claude Flow MCP tools**: Web scraping, lead generation, automation
+- **Production stories**: "Show me listings in Coronado under 3 million"
+- **Production stories**: "Generate leads for luxury condos in downtown"
+- **Real-time memory** during active testing session
+- **Enterprise tool coordination** and workflow execution
+
+### 📋 TESTING PROTOCOL:
+1. **Start system ONCE**: `npm start` - don't restart during testing session
+2. **Test all features** in continuous session
+3. **Document any non-memory related issues**
+4. **After testing**: We'll configure Redis Cloud for persistent memory
+
+---
+
 ## 📋 Pre-Testing Setup
 
 ### ✅ Environment Setup
@@ -26,10 +53,10 @@
 - [ ] **Context Retention**: Refer to something mentioned earlier - does it remember?
 - [ ] **Intent Recognition**: Try different types of requests (questions, tasks, greetings)
 
-### ✅ Memory System Validation
-- [ ] **Working Memory**: Have a conversation, refresh page - does it remember recent context?
-- [ ] **Session Persistence**: Close browser, return later - does it recall your conversation?
-- [ ] **Memory Retrieval**: Say "As we discussed earlier..." - does it reference previous topics?
+### ✅ Memory System Validation (LIMITED - IN-MEMORY ONLY)
+- [ ] **Working Memory**: Have a conversation, refresh page - ✅ should remember recent context (within same session)
+- [ ] **Session Persistence**: ❌ SKIP - Won't work without Redis (server restart = memory loss)
+- [ ] **Memory Retrieval**: Say "As we discussed earlier..." - ✅ should reference topics from current session
 
 ### ✅ Personality Engine Testing
 - [ ] **Professional Tone**: Does it sound business-appropriate?
