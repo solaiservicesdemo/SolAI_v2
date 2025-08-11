@@ -324,12 +324,14 @@ class ToolOrchestrator {
       maxConcurrentTools: 5
     };
 
-    if (!this.claudeFlowConfig.apiKey) {
-      this.logger.warn('⚠️ Claude Flow API key not configured, MCP tools disabled');
-      this.claudeFlowConfig.enabled = false;
+    if (!this.claudeFlowConfig.apiKey || this.claudeFlowConfig.apiKey === 'pending_real_key') {
+      this.logger.warn('⚠️ Claude Flow API key pending, MCP server running in basic mode');
+      this.claudeFlowConfig.enabled = true; // Keep enabled for basic MCP functionality
+      this.claudeFlowConfig.basicMode = true;
     } else {
       this.claudeFlowConfig.enabled = true;
-      this.logger.info('✅ Claude Flow MCP integration configured');
+      this.claudeFlowConfig.basicMode = false;
+      this.logger.info('✅ Claude Flow MCP integration fully configured');
     }
   }
 
