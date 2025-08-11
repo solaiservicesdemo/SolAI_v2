@@ -108,19 +108,46 @@ npm run dev
 
 ## 📝 **Focused Testing Scripts**
 
-### **Script 1: Conversation Intelligence (10 minutes)**
+### **Script 1: Production Story Testing (20 minutes)**
+```
+🎯 PRODUCTION STORY 1: Property Search & Web Scraping
+Tester says: "Show me listings in Coronado under 3 million"
+✅ Expect: 
+- Activates web scraping workflow
+- Uses web_scraper + market_analyzer + document_processor
+- Professional response about searching properties
+- Shows "🏠 Property search initiated!" or similar
+
+🎯 PRODUCTION STORY 2: Lead Generation Automation  
+Tester says: "Generate leads for luxury condos in downtown"
+✅ Expect:
+- Activates lead generation workflow  
+- Uses lead_generator + CRM + web_scraper + email_processor
+- Professional response about generating leads
+- Shows "🎯 Lead generation workflow activated!" or similar
+
+🎯 EMAIL AUTOMATION TEST
+Tester says: "Send follow up email to my leads"
+✅ Expect: Activates Gmail + CRM integration workflow
+
+🎯 SMS COMMUNICATION TEST  
+Tester says: "Send text message to client about appointment"
+✅ Expect: Activates Twilio + Calendar integration workflow
+```
+
+### **Script 2: Conversation Intelligence (10 minutes)**
 ```
 Tester says: "Hello"
-✅ Expect: Professional greeting, asks what you need help with
+✅ Expect: Professional greeting mentioning 93 enterprise tools
 
 Tester says: "I have a new client lead"
-✅ Expect: Asks follow-up questions about the lead
+✅ Expect: Asks follow-up questions, suggests CRM integration
 
 Tester says: "What was that lead's name again?" (reference previous)
 ✅ Expect: Should reference the previous conversation context
 
 Tester says: "Schedule a meeting for next Tuesday"
-✅ Expect: Professional response about scheduling (may note tool unavailability)
+✅ Expect: Professional response about calendar integration
 ```
 
 ### **Script 2: Memory & Context (5 minutes)**

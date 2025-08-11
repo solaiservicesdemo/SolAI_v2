@@ -37,17 +37,45 @@
 - [ ] **Emotional Intelligence**: Express urgency/concern - does it adjust appropriately?
 - [ ] **Helpfulness**: Does it proactively offer assistance?
 
-## 🔧 Tool Orchestration Testing
+## 🔧 Enterprise Tool Integration Testing
 
-### ✅ Super-Tools Integration (If RealEstate AI Enterprise is running)
-- [ ] **Email Tasks**: "Help me send an email to a client" - does it coordinate Gmail?
-- [ ] **SMS Tasks**: "Send a text message update" - does it use Twilio?
-- [ ] **Calendar Tasks**: "Schedule a property showing" - does it access calendar?
-- [ ] **CRM Tasks**: "Update client information" - does it connect to CRM?
+### ✅ Production Story Validation (CRITICAL)
+- [ ] **Property Search**: "Show me listings in Coronado under 3 million"
+  - Should activate web_scraper + market_analyzer + document_processor
+  - Should show "🏠 Property search initiated!" or similar response
+  - Should indicate web scraping workflow activation
+  
+- [ ] **Lead Generation**: "Generate leads for luxury condos in downtown"
+  - Should activate lead_generator + CRM + web_scraper + email_processor
+  - Should show "🎯 Lead generation workflow activated!" or similar
+  - Should indicate lead generation workflow with CRM integration
 
-### ✅ Tool Selection Logic
-- [ ] **Single Tool**: Simple request uses appropriate single tool
-- [ ] **Multi-Tool**: Complex request coordinates multiple tools
+### ✅ Additional Enterprise Patterns
+- [ ] **Email Automation**: "Send follow up email to my leads"
+  - Should activate Gmail + CRM workflow
+  - Should show professional email automation response
+  
+- [ ] **SMS Communication**: "Send text message to client about appointment"
+  - Should activate Twilio + Calendar workflow
+  - Should show SMS automation response with calendar integration
+  
+- [ ] **Calendar Management**: "Schedule meeting with new client"
+  - Should activate Calendar + Gmail + Twilio workflow
+  - Should show scheduling automation with notifications
+  
+- [ ] **Document Processing**: "Review this contract"
+  - Should activate document_processor + file_processor + template_engine
+  - Should show document analysis workflow activation
+  
+- [ ] **Market Analysis**: "Analyze market trends in downtown"
+  - Should activate market_analyzer + web_scraper + data_processor
+  - Should show market analysis workflow with data gathering
+
+### ✅ Tool Coordination Logic
+- [ ] **Primary Tool Selection**: Each pattern selects correct primary tool
+- [ ] **Supporting Tools**: Appropriate supporting tools are coordinated
+- [ ] **Workflow Type**: Shows correct workflow type (web_scraping_workflow, lead_generation_workflow, etc.)
+- [ ] **Execution Mode**: Complex workflows show parallel execution, simple ones show sequential
 - [ ] **Fallbacks**: If tools fail, does it handle gracefully?
 
 ## 🎭 Real Estate Specific Testing

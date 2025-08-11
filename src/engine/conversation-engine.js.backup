@@ -642,9 +642,9 @@
          // Pass specific tool information from pattern matching (if available)
          primaryTool: enhancedContext.primaryTool,
          supportingTools: enhancedContext.supportingTools || [],
-         // Enterprise workflow coordination  
-         workflowType: 'enterprise_workflow',
-         executionMode: 'parallel'
+         // Enterprise workflow coordination
+         workflowType: this.determineWorkflowType(responseStrategy.responseType),
+         executionMode: this.determineExecutionMode(responseStrategy.responseType)
        };
 
        this.logger.debug('🔧 Executing enterprise tools', {
@@ -726,5 +726,31 @@
      }
    }
  }
+ 
+   determineWorkflowType(responseType) {
+     const workflowMap = {
+       'property_search_response': 'web_scraping_workflow',
+       'lead_generation_response': 'lead_generation_workflow',
+       'email_automation_response': 'email_workflow',
+       'sms_communication_response': 'sms_workflow',
+       'calendar_management_response': 'scheduling_workflow',
+       'client_management_response': 'crm_workflow',
+       'document_processing_response': 'document_workflow',
+       'market_analysis_response': 'analysis_workflow',
+       'task_coordination': 'general_workflow'
+     };
+     return workflowMap[responseType] || 'simple_workflow';
+   }
+
+   determineExecutionMode(responseType) {
+     const complexWorkflows = [
+       'property_search_response',
+       'lead_generation_response',
+       'market_analysis_response'
+     ];
+     return complexWorkflows.includes(responseType) ? 'parallel' : 'sequential';
+   }
+}
 
 module.exports = ConversationEngine;
+ 

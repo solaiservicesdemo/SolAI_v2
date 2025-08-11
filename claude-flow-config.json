@@ -1,0 +1,23 @@
+{
+  "server": {
+    "port": 3002,
+    "host": "localhost"
+  },
+  "tools": {
+    "enabled": true,
+    "categories": [
+      "file-operations",
+      "web-scraping",
+      "data-processing",
+      "api-calls",
+      "text-processing",
+      "image-processing",
+      "workflow-automation"
+    ]
+  },
+  "security": {
+    "apiKey": "dev_api_key_1754876398918",
+    "rateLimiting": true,
+    "maxRequestsPerMinute": 100
+  }
+}
