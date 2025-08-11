@@ -850,14 +850,90 @@ class AuditTrail {
   // ===================== UTILITY METHODS =====================
 
   async getLastAuditHash() {
-    // Get the hash of the most recent audit entry
-    // In production, this would query the audit storage
-    return 'previous_hash_placeholder';
+    // Get the hash of the most recent audit entry from storage
+    try {
+      // Check in-memory buffer first
+      if (this.auditBuffer.length > 0) {
+        return this.auditBuffer[this.auditBuffer.length - 1].hash;
+      }
+
+      // Check archive storage for the most recent entry
+      const fs = require('fs').promises;
+      const path = require('path');
+      
+      const archivePath = './audit_archives';
+      
+      if (!require('fs').existsSync(archivePath)) {
+        return null; // First audit entry
+      }
+
+      const files = await fs.readdir(archivePath);
+      const auditFiles = files.filter(f => f.startsWith('audit-') && f.endsWith('.jsonl'))
+                              .sort()
+                              .reverse();
+
+      for (const filename of auditFiles) {
+        try {
+          const filepath = path.join(archivePath, filename);
+          const content = await fs.readFile(filepath, 'utf8');
+          const lines = content.trim().split('\n').filter(line => line.trim());
+          
+          if (lines.length > 0) {
+            const lastEntry = JSON.parse(lines[lines.length - 1]);
+            return lastEntry.hash;
+          }
+        } catch (error) {
+          this.logger.debug(`Failed to read audit file ${filename}`, error);
+          continue;
+        }
+      }
+
+      return null; // No previous entries found
+      
+    } catch (error) {
+      this.logger.error('Failed to get last audit hash', error);
+      return null;
+    }
   }
 
   calculateCurrentHash() {
-    // Calculate current audit chain hash
-    return 'current_hash_placeholder';
+    // Calculate current audit chain hash based on all entries
+    try {
+      if (this.auditBuffer.length === 0) {
+        return this.calculateHashOfEmptyChain();
+      }
+
+      // Create a hash of the entire current buffer
+      const chainData = this.auditBuffer.map(entry => ({
+        audit_id: entry.audit_id,
+        timestamp: entry.timestamp,
+        hash: entry.hash,
+        previous_hash: entry.previous_hash
+      }));
+
+      const chainString = JSON.stringify(chainData, Object.keys(chainData[0] || {}).sort());
+      
+      return crypto.createHmac('sha256', this.encryptionKey + '-chain')
+                   .update(chainString)
+                   .digest('hex');
+                   
+    } catch (error) {
+      this.logger.error('Failed to calculate current hash', error);
+      return 'hash_calculation_error_' + Date.now();
+    }
+  }
+
+  calculateHashOfEmptyChain() {
+    // Genesis hash for empty audit chain
+    const genesisData = {
+      chain_start: new Date().toISOString(),
+      server_id: process.env.SERVER_ID || 'solai-main',
+      version: process.env.APP_VERSION || '2.0.0'
+    };
+
+    return crypto.createHmac('sha256', this.encryptionKey + '-genesis')
+                 .update(JSON.stringify(genesisData))
+                 .digest('hex');
   }
 
   // ===================== PUBLIC API =====================
