@@ -4,8 +4,8 @@
   "description": "SolAI v2 - Enterprise Conversational Intelligence for Real Estate",
   "main": "src/server.js",
   "scripts": {
-    "start": "node scripts/start-integrated.js",
-    "dev": "node scripts/start-integrated.js",
+    "start": "node src/server.js",
+    "dev": "node src/server.js",
     "dev:fast": "FAST_BOOT=true node src/server.js",
     "dev:watch": "nodemon src/server.js",
     "enterprise": "node scripts/enterprise-setup.js",

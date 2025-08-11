@@ -7,6 +7,9 @@ const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
+// Load environment variables
+require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
+
 console.log('🚀 Starting SolAI v2 Enterprise with Integrated Claude Flow MCP');
 console.log('================================================================');
 
