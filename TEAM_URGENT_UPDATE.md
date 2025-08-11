@@ -49,8 +49,12 @@
 - Type: "Generate leads for luxury condos in downtown"
 - Expected: Lead generation workflow with CRM integration
 
+### 🔑 CLAUDE FLOW API KEY RECEIVED:
+- **Add to your local .env file**: Replace `pending_real_key` with the real API key provided separately
+- **Restart system after adding key** to activate all 87 MCP tools  
+- **Full 93-tool system** will be operational after restart
+
 ### ⚠️ CURRENT LIMITATIONS (Non-blocking):
-- **MCP running in basic mode** - 87 additional tools pending real Claude Flow API key
 - **Redis in fallback** - Memory persists within session, not across server restarts
 
 ### 📋 TESTING FOCUS:
