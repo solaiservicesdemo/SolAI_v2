@@ -360,15 +360,40 @@ class ToolOrchestrator {
     });
   }
 
-  async coordinateTools(request = {}) {
+  async coordinateTools(requestOrIntent, context = {}, parameters = {}) {
+    // INTERFACE ADAPTER: Handle both legacy (single object) and new (3-param) calling styles
+    let request, intent, ctx, priority, actualParameters;
+    
+    if (typeof requestOrIntent === 'object' && requestOrIntent !== null && !context.hasOwnProperty) {
+      // Called with single request object (from conversation engines) 
+      request = requestOrIntent;
+      intent = request?.intent;
+      ctx = request?.context || {};
+      priority = request?.priority ?? 'medium';
+      actualParameters = request?.parameters;
+      
+      this.logger.debug('🔄 Interface adapter: Single object call detected', {
+        intent,
+        hasContext: !!ctx,
+        callStyle: 'coordinateTools(requestObject)'
+      });
+    } else {
+      // Called with separate parameters (legacy style)
+      intent = requestOrIntent;
+      ctx = context;
+      priority = 'medium';
+      actualParameters = parameters;
+      request = { intent, context: ctx, parameters: actualParameters, priority };
+      
+      this.logger.debug('🔄 Interface adapter: Three parameter call detected', {
+        intent,
+        hasContext: !!ctx,
+        callStyle: 'coordinateTools(intent, context, parameters)'
+      });
+    }
+    
     const coordinationId = uuidv4();
     const timer = this.logger.startTimer(`tool-coordination-${coordinationId}`);
-  
-    // Safe locals so we never reference an unbound identifier
-    const intent = request?.intent;
-    const ctx = request?.context || {};
-    const priority = request?.priority ?? 'medium';
-    const parameters = request?.parameters;
   
     try {
       this.logger.info('🔧 Starting enhanced tool coordination', {
@@ -533,7 +558,15 @@ class ToolOrchestrator {
       'communication',
       'document_request',
       'property_search', // Only if specific data lookup needed
-      'workflow_execution'
+      'workflow_execution',
+      // Real estate automation intents
+      'email_automation',
+      'sms_communication', 
+      'calendar_management',
+      'client_management',
+      'document_processing',
+      'lead_generation',
+      'market_analysis_response'
     ];
 
     // Simple conversational intents that DON'T need tools
@@ -586,11 +619,40 @@ class ToolOrchestrator {
       task_reminder: [{ name: 'task_manager', registry: 'claude_flow_tools' }],
       market_analysis: [{ name: 'market_analyzer', registry: 'super_tools' }],
       communication: [{ name: 'gmail', registry: 'super_tools' }],
-      property_search: [{ name: 'crm', registry: 'super_tools' }] // or your real search tool if you add one
+      property_search: [{ name: 'crm', registry: 'super_tools' }], // or your real search tool if you add one
+      // Real estate automation tools
+      email_automation: [{ name: 'gmail', registry: 'super_tools' }],
+      sms_communication: [{ name: 'twilio', registry: 'super_tools' }],
+      calendar_management: [{ name: 'calendar', registry: 'super_tools' }],
+      client_management: [{ name: 'crm', registry: 'super_tools' }],
+      document_processing: [{ name: 'document_processor', registry: 'super_tools' }],
+      lead_generation: [{ name: 'crm', registry: 'super_tools' }]
     };
   
     const wanted = minimalToolMappings[intent] || [];
-    return wanted.filter(t => this.toolRegistry[t.registry] && this.toolRegistry[t.registry][t.name]);
+    
+    // Debug logging for tool selection
+    this.logger.debug('📋 Minimal tool selection debug', {
+      intent,
+      wanted: wanted.map(t => `${t.name}@${t.registry}`),
+      registryKeys: Object.keys(this.toolRegistry),
+      superToolsKeys: this.toolRegistry.super_tools ? Object.keys(this.toolRegistry.super_tools) : 'none'
+    });
+    
+    const filtered = wanted.filter(t => {
+      const registryExists = !!this.toolRegistry[t.registry];
+      const toolExists = registryExists && !!this.toolRegistry[t.registry][t.name];
+      
+      this.logger.debug('🔍 Tool availability check', {
+        tool: `${t.name}@${t.registry}`,
+        registryExists,
+        toolExists
+      });
+      
+      return registryExists && toolExists;
+    });
+    
+    return filtered;
   }
   
 

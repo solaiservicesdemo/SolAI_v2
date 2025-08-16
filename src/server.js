@@ -28,7 +28,7 @@ class SolAIServer {
     this.wsClients = new Map(); // Track WebSocket connections by sessionId
     
     this.setupMiddleware();
-    this.initializeComponents();
+    // Component initialization moved to start() method for proper async handling
     this.setupRoutes();
     this.setupWebSocket();
     this.setupErrorHandling();
@@ -74,14 +74,15 @@ class SolAIServer {
       this.memoryManager = memoryManager;
       this.personalityEngine = personalityEngine;
       
-      // Initialize dependent components in parallel
-      const [toolOrchestrator, conversationEngine] = await Promise.all([
-        this.initializeToolOrchestrator(this.memoryManager),
-        this.initializeConversationEngine(this.memoryManager, this.personalityEngine, null) // Tool orchestrator injected later
-      ]);
+      // Initialize tool orchestrator first (dependency for conversation engine)
+      this.toolOrchestrator = await this.initializeToolOrchestrator(this.memoryManager);
       
-      this.toolOrchestrator = toolOrchestrator;
-      this.conversationEngine = conversationEngine;
+      // Then initialize conversation engine with proper tool orchestrator dependency
+      this.conversationEngine = await this.initializeConversationEngine(
+        this.memoryManager, 
+        this.personalityEngine, 
+        this.toolOrchestrator
+      );
       
       // Inject tool orchestrator into conversation engine
       this.conversationEngine.toolOrchestrator = this.toolOrchestrator;
@@ -499,6 +500,9 @@ class SolAIServer {
 
   async start() {
     try {
+      // Initialize all components first
+      await this.initializeComponents();
+      
       this.server.listen(this.port, () => {
         this.logger.info(`🚀 SolAI v2 Enterprise running on http://localhost:${this.port}`);
         this.logger.info('🔌 WebSocket server ready for real-time updates');

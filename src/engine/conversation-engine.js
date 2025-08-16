@@ -633,45 +633,116 @@
      }
  
      try {
-       // Enhanced tool coordination with specific tool preferences
-       const toolRequest = {
-         intent: responseStrategy.responseType,
-         context: enhancedContext,
-         priority: responseStrategy.priority,
-         message: enhancedContext.currentUserMessage || '',
-         // Pass specific tool information from pattern matching (if available)
-         primaryTool: enhancedContext.primaryTool,
-         supportingTools: enhancedContext.supportingTools || [],
-         // Enterprise workflow coordination  
-         workflowType: 'enterprise_workflow',
-         executionMode: 'parallel'
-       };
-
-       this.logger.debug('🔧 Executing enterprise tools', {
-         intent: responseStrategy.responseType,
-         primaryTool: toolRequest.primaryTool,
-         supportingTools: toolRequest.supportingTools,
-         workflowType: toolRequest.workflowType
+       // MCP-FIRST APPROACH: Direct tool execution using Claude Flow MCP standards
+       const intent = responseStrategy.responseType;
+       const message = enhancedContext.currentUserMessage || '';
+       
+       this.logger.debug('🔧 Executing MCP tools', {
+         intent,
+         message: message.substring(0, 100) + '...'
        });
 
-       const toolResults = await this.toolOrchestrator.coordinateTools(toolRequest);
- 
+       const mcpResults = await this.executeMCPTools(intent, message, enhancedContext);
+       
        return {
-         toolsUsed: toolResults.toolsExecuted || [],
-         results: toolResults.results || {},
-         coordination: toolResults.coordinationType || 'single',
-         executionTime: toolResults.executionTime || 0,
-         workflowType: toolRequest.workflowType,
-         primaryTool: toolRequest.primaryTool
+         toolsUsed: mcpResults.toolsUsed || [],
+         results: mcpResults.results || {},
+         coordination: 'mcp_direct',
+         executionTime: mcpResults.executionTime || 0,
+         mcpCompliant: true
        };
+       
      } catch (error) {
-       this.logger.error('❌ Tool execution failed', error);
-       return {
-         toolsUsed: [],
-         coordination: 'failed',
-         error: error.message
-       };
+       this.logger.error('❌ MCP tool execution failed', error);
+       
+       // Fallback to legacy orchestrator if MCP fails
+       try {
+         this.logger.warn('🔄 Falling back to legacy tool orchestrator');
+         const toolRequest = {
+           intent: responseStrategy.responseType,
+           context: enhancedContext,
+           priority: responseStrategy.priority
+         };
+         const fallbackResults = await this.toolOrchestrator.coordinateTools(toolRequest);
+         
+         return {
+           toolsUsed: fallbackResults.toolsExecuted || [],
+           results: fallbackResults.results || {},
+           coordination: 'legacy_fallback',
+           error: error.message
+         };
+       } catch (fallbackError) {
+         return {
+           toolsUsed: [],
+           coordination: 'failed',
+           error: `MCP failed: ${error.message}, Fallback failed: ${fallbackError.message}`
+         };
+       }
      }
+   }
+
+   async executeMCPTools(intent, message, context) {
+     const startTime = Date.now();
+     const MCPClient = require('../tools/mcp-client');
+     const mcpClient = new MCPClient();
+     
+     const results = [];
+     const toolsUsed = [];
+     
+     // Intent-based tool mapping following Claude Flow MCP patterns
+     switch (intent) {
+       case 'email_automation':
+         const emailResult = await this.handleEmailAutomation(mcpClient, message, context);
+         results.push(emailResult);
+         toolsUsed.push('email_processor');
+         break;
+         
+       case 'task_request':
+         const taskResult = await this.handleTaskRequest(mcpClient, message, context);
+         results.push(taskResult);
+         toolsUsed.push('task_manager');
+         break;
+         
+       case 'lead_generation':
+         const leadResult = await this.handleLeadGeneration(mcpClient, message, context);
+         results.push(leadResult);
+         toolsUsed.push('neural_analyzer');
+         break;
+         
+       default:
+         // General analysis for unknown intents
+         const analysisResult = await mcpClient.analyzeContent(message, intent);
+         results.push(analysisResult);
+         toolsUsed.push('neural_analyzer');
+     }
+     
+     return {
+       toolsUsed,
+       results,
+       executionTime: Date.now() - startTime,
+       mcpCompliant: true
+     };
+   }
+
+   async handleEmailAutomation(mcpClient, message, context) {
+     // Extract email details from message
+     const emailMatch = message.match(/send.*email.*to\s+([^\s]+)/i);
+     const subjectMatch = message.match(/subject\s+(.+)/i);
+     
+     const recipient = emailMatch ? emailMatch[1] : 'unknown@example.com';
+     const subject = subjectMatch ? subjectMatch[1] : 'Message from SolAI';
+     const body = `Hello,\n\nThis is an automated message generated by SolAI v2.\n\nOriginal request: ${message}\n\nBest regards,\nSolAI Team`;
+     
+     return await mcpClient.sendEmail(recipient, subject, body);
+   }
+
+   async handleTaskRequest(mcpClient, message, context) {
+     const title = message.length > 50 ? message.substring(0, 50) + '...' : message;
+     return await mcpClient.createTask(title, message, 'medium');
+   }
+
+   async handleLeadGeneration(mcpClient, message, context) {
+     return await mcpClient.analyzeContent(message, 'lead_qualification');
    }
  
    async generateResponse(responseStrategy, enhancedContext, toolResults) {
