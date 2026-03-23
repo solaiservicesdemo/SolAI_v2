@@ -25,7 +25,7 @@ SolAI v2 transforms from "glorified tool calling" to genuine conversational inte
 
 ### 🔧 **Tool Orchestrator**
 - **Existing Super-Tools**: Gmail, Twilio, Calendar, CRM, Document Processor, Market Analyzer
-- **Claude Flow Integration**: 87 MCP tools with hive-mind orchestration
+- **Claude Flow Integration**: 87 MCP tools with hive-mind orchestration.
 - **Intelligent Coordination**: Parallel execution, sequential chaining, workflow automation
 
 ## 🚀 Quick Start
